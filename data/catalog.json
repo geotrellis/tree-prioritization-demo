@@ -1,0 +1,13 @@
+{
+ "catalog": "GeoTrellis Catalog",
+ "stores": [
+  {
+   "store": "data:fs",
+   "params": {
+     "type": "fs",
+     "path": "catalog",
+     "cacheAll": "false"
+   }
+  }
+ ]
+}

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -e
+
+rm -rf target && mkdir target
+./sbt assembly
+
+rm -rf build && mkdir -p build/modeling/data
+cp `ls target/*.jar` build/modeling/modeling.jar
+cp -r data build/modeling
+cd build
+tar czf modeling.tar.gz modeling
+rm -rf modeling
+
+echo "Succesfully built build/modeling.tar.gz"
