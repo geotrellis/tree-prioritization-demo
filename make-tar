@@ -3,7 +3,7 @@
 set -e
 
 rm -rf target && mkdir target
-./sbt assembly
+./sbt test assembly
 
 rm -rf build && mkdir -p build/modeling/data
 cp `ls target/*.jar` build/modeling/modeling.jar
