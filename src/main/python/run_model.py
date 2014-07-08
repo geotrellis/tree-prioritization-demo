@@ -43,7 +43,7 @@ def run_model(scenario_json):
 
     for (tree, pctg) in zip(trees, pts):
         species = tree["species"].split("_")[0]
-        live_trees.append(Tree(float(tree["diameter"]), pctg, int(species), 0))
+        live_trees.append(Tree(int(species), float(tree["diameter"]), pctg))
 
     # Growth kill cycle
     years = int(scenario_params["years"])
@@ -52,16 +52,20 @@ def run_model(scenario_json):
     all_dead = []
     next_years_carryover = 0.0
     for i in range(0, years):
-        # select and kill trees
+        # Select and kill trees
         live_trees, dead_trees, next_years_carryover = kill_trees(live_trees, mortality, next_years_carryover)
         all_dead += dead_trees
-        # add growth to living trees
+        # Add growth to living trees
         for tree in live_trees:
             tree.grow()
 
-        output['years'].append({'year': i, 'live':[tree.get_json() for tree in live_trees], 'killed':[tree.get_json() for tree in dead_trees]})
+        output['years'].append({
+            'year': i,
+            'live':[tree.get_json() for tree in live_trees],
+            'killed':[tree.get_json() for tree in dead_trees]
+        })
 
-    return (output, format)
+    return output
 
 
 def get_trellis_histogram(poly, pts):
@@ -79,18 +83,18 @@ def get_trellis_histogram(poly, pts):
     return (json["hist"][0],json["pts"])
 
 
-def build_tree_grouping(feature, hist):
+def build_tree_grouping(group, hist):
 
-    diameter = int(feature["diameter"])
-    species = feature["species"].split("_")[0]
+    diameter = int(group["diameter"])
+    species = group["species"].split("_")[0]
 
-    nTrees = int(feature["count"])
+    nTrees = int(group["count"])
     hist = hist_to_treepct(hist, nTrees)
     trees = []
 
-    for (pct, n) in hist:
+    for (land_use_weight, n) in hist:
         for i in range(0, n):
-            trees.append(Tree(diameter, pct, species, 0))
+            trees.append(Tree(species, diameter, land_use_weight))
 
     return trees
 
@@ -98,17 +102,17 @@ def build_tree_grouping(feature, hist):
 def hist_to_treepct(hist, nTrees):
     """ Convert a histogram of kill values to # of trees for given kill values """
     
-    hist_total = sum([n for (h,n) in hist])
+    area_total = sum([n for (h, n) in hist])
     hist = sorted(hist, key=itemgetter(1))
     trees = []
 
-    for (cat,area) in hist:
+    for (category, area) in hist:
         if nTrees > 0:
-            pct = area / float(hist_total)
-            trees_in_cat = math.ceil(nTrees * pct)
-            nTrees = nTrees - trees_in_cat
-            hist_total = hist_total - area
-            trees.append([cat, int(trees_in_cat)])
+            pct = area / float(area_total)
+            trees_in_category = math.ceil(nTrees * pct)
+            nTrees - trees_in_category
+            area_total -= area
+            trees.append([category, int(trees_in_category)])
 
     return trees
 
@@ -120,7 +124,7 @@ def kill_trees(live_trees, kill_percent, fractional_carryover_kill):
     next_years_carryover = kill_count - int(kill_count)
     kill_count = int(kill_count)
 
-    #decide which trees to kill
+    # Decide which trees to kill
     dead_trees = []
     for i in range(0, kill_count):
         kill_this_tree = weighted_choice(live_trees)
@@ -136,7 +140,7 @@ def weighted_choice(trees):
     running_total = 0
 
     for t in trees:
-        running_total += t.get_weight()
+        running_total += t.get_kill_weight()
         totals.append(running_total)
 
     rnd = random.random() * running_total
