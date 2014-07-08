@@ -75,21 +75,31 @@ def build_tree_grouping(group, land_use_hist):
 
 def get_tree_counts(land_use_hist, n_trees):
     """
-    Convert a histogram of land use categories to
-    # of trees for those land use categories
+    Distribute n_trees among land use categories,
+    with a distribution matching land_use_hist
     """
     area_total = sum([area for (category, area) in land_use_hist])
-    trees = []
+    scale = n_trees / float(area_total)
 
-    for (category, area) in land_use_hist:
-        if n_trees > 0:
-            pct = area / float(area_total)
-            trees_in_category = math.ceil(n_trees * pct)
-            n_trees - trees_in_category
-            area_total -= area
-            trees.append([category, int(trees_in_category)])
+    tree_counts = [(category, math.round(scale * area ))
+                    for (category, area) in land_use_hist]
 
-    return trees
+    # If we ended up with the wrong number of trees (due to roundoff error),
+    # Add or remove a tree from a random category until we have the
+    # right number of trees.
+
+    tree_total = sum([count for (category, count) in tree_counts])
+    roundoff_error = n_trees - tree_total
+    roundoff_sign = roundoff_error / math.abs(roundoff_error)
+    n_categories = len(tree_counts)
+
+    while roundoff_error:
+        category = random.random() * n_categories
+        if tree_counts[category][1] + roundoff_sign >= 0:
+            tree_counts[category][1] += roundoff_sign
+            roundoff_error -= roundoff_sign
+
+    return tree_counts
 
 
 def kill_trees(live_trees, kill_percent, fractional_carryover_kill):
