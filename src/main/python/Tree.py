@@ -1,6 +1,10 @@
 
+# TODO: find weights
+_LAND_USE_WEIGHTS = {}
+_SPECIES_WEIGHTS = {}
+
 _DBH_BREAKS = [0, 8, 16, 31, 47, 62, 77]
-_DBH_MORTALITY = [9.0, 6.4, 4.3, 0.5, 3.3, 1.8, 3.1]
+_DBH_WEIGHTS = [9.0, 6.4, 4.3, 0.5, 3.3, 1.8, 3.1]
 
 _GROWTH_RATES = dict([
     ('Fraxinus', [.90,  .99,  .85, .64,  .68,  .70,  .44]),
@@ -24,22 +28,20 @@ class Tree(object):
 
         return Tree.nId - 1
 
-    def __init__(self, species_id, diameter, land_use_weight):
+    def __init__(self, species_id, diameter_cm, land_use_weight):
         self.treeId = Tree._next_id()
-        self.land_use_weight = land_use_weight
+        self.diameter_cm = diameter_cm
+        self.land_use_weight = _LAND_USE_WEIGHTS.get(land_use_weight, 0)
+        self.species_weight = _SPECIES_WEIGHTS.get(species_id, 0)
         self.is_dead = False
-        self.species = Species.objects.get(pk=species_id)
-        #todo: assumes cm
-        self.diameter = diameter
 
     def get_kill_weight(self):
         """
         Return tree's relative likelihood of dying in a given cycle
         by combining factors from its diameter, species, and land use type
         """
-        dbh_weight = self._get_interp(self.diameter, _DBH_BREAKS, _DBH_MORTALITY)
-        species_weight = self.species.kill_weight      
-        return dbh_weight + species_weight + self.land_use_weight
+        dbh_weight = self._get_interp(self.diameter_cm, _DBH_BREAKS, _DBH_WEIGHTS)
+        return dbh_weight + self.species_weight + self.land_use_weight
 
     def _get_interp(self, unit, lookup, values):
         if unit >= lookup[-1]:
@@ -57,9 +59,9 @@ class Tree(object):
 
     def grow(self):
         # Match species against growth table
-        dbh_rates = _GROWTH_RATES.get(self.species.genus, _GROWTH_RATES['Other'])
+        dbh_rates = _GROWTH_RATES.get(self.species_weight.genus, _GROWTH_RATES['Other'])
         # Figure out how much to grow
-        dbh_increase = self._get_interp(self.diameter, _DBH_BREAKS, dbh_rates)
+        dbh_increase = self._get_interp(self.diameter_cm, _DBH_BREAKS, dbh_rates)
 
-        self.diameter += dbh_increase
+        self.diameter_cm += dbh_increase
         return

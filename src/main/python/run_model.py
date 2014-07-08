@@ -1,52 +1,43 @@
 import math
 import random
-import urllib2
-import simplejson
 from operator import itemgetter
 
 from Tree import Tree
 
 
-def run_model(scenario_json):
-    """ Input json should look like:
-    { geometry: [[x1,y1],[x2,y2],...],
-      groups: [{
+def run_model(scenario):
+    """ Input dictionary should look like:
+    { 'groups': [{
                  "species": species_id,
-                 "diameter": diameter in inches,
-                 "count" }, ...],
-      trees: [{
+                 "diameter": diameter in cm,
+                 "count"}, ...],
+      'trees': [{
                  "species": species_id,
-                 "diameter": diameter in inches,
-                 "location": [x, y] }, ...],
-      mortality: mortality percentage (trees to kill each year),
-      years: number of years }
-
-    A histogram is build via trellis and groups of trees are auto-
-    assigned based on species and kill-percentage (from histogram)
-
-    Tree locations are sent directly to trellis and then assigned
-    a kill percentage
+                 "diameter": diameter in cm,
+                 "location": [x, y],
+                 "land_use_category": category}, ...],
+      'land_use_histogram': [(category, count), ...],
+      'mortality': mortality percentage (trees to kill each year),
+      'years': number of years }
     """
-    scenario_params = simplejson.loads(scenario_json)
+    mortality = float(scenario.get("mortality", "0.05"))
+    trees = scenario["trees"]
+    groups = scenario["groups"]
+    land_use_hist = scenario["land_use_histogram"]
 
-    mortality = float(scenario_params.get("mortality", "0.05"))
-    geometry = scenario_params["geometry"]
-    trees = scenario_params["trees"]
-    groups = scenario_params["groups"]
-
-    hist, pts = get_trellis_histogram(geometry, [tree["location"] for tree in trees])
-
-    # get list of live trees
+    # Build list of live trees
     live_trees = []
     for group in groups:
-        live_trees += build_tree_grouping(group, hist)
+        live_trees += build_tree_grouping(group, land_use_hist)
 
-    for (tree, pctg) in zip(trees, pts):
-        species = tree["species"].split("_")[0]
-        live_trees.append(Tree(int(species), float(tree["diameter"]), pctg))
+    for tree in trees:
+        live_trees.append(Tree(
+            int(tree["species"]),
+            float(tree["diameter"]),
+            tree["land_use_category"]))
 
     # Growth kill cycle
-    years = int(scenario_params["years"])
+    years = int(scenario["years"])
     output = {'years': []}
 
     all_dead = []
@@ -68,49 +59,33 @@ def run_model(scenario_json):
     return output
 
 
-def get_trellis_histogram(poly, pts):
-    """ Given a list of points forming a polygon (poly) and a list of points,
-    return the land use histogram as well as the land use underneath each of
-    points"""
-
-    encoded_polys = ",".join(["%s %s" % (p[0], p[1]) for p in poly]).replace(" ","%20")
-    pts = ",".join(["%s %s" % (p[0], p[1]) for p in pts]).replace(" ","%20")
-    url = settings.TRELLIS_URL + "scenarioHistogram?polygons=%s&points=%s" % (encoded_polys,pts)
-
-    print "Trellis URL: %s" % url
-
-    json = simplejson.loads(urllib2.urlopen(url).read())
-    return (json["hist"][0],json["pts"])
-
-
-def build_tree_grouping(group, hist):
-
-    diameter = int(group["diameter"])
-    species = group["species"].split("_")[0]
-
-    nTrees = int(group["count"])
-    hist = hist_to_treepct(hist, nTrees)
+def build_tree_grouping(group, land_use_hist):
+    diameter_cm = int(group["diameter"])
+    species_id = group["species"]
+    n_trees = int(group["count"])
+    tree_counts = get_tree_counts(land_use_hist, n_trees)
     trees = []
 
-    for (land_use_weight, n) in hist:
+    for (land_use_category, n) in tree_counts:
         for i in range(0, n):
-            trees.append(Tree(species, diameter, land_use_weight))
+            trees.append(Tree(species_id, diameter_cm, land_use_category))
 
     return trees
 
 
-def hist_to_treepct(hist, nTrees):
-    """ Convert a histogram of kill values to # of trees for given kill values """
-    
-    area_total = sum([n for (h, n) in hist])
-    hist = sorted(hist, key=itemgetter(1))
+def get_tree_counts(land_use_hist, n_trees):
+    """
+    Convert a histogram of land use categories to
+    # of trees for those land use categories
+    """
+    area_total = sum([area for (category, area) in land_use_hist])
     trees = []
 
-    for (category, area) in hist:
-        if nTrees > 0:
+    for (category, area) in land_use_hist:
+        if n_trees > 0:
             pct = area / float(area_total)
-            trees_in_category = math.ceil(nTrees * pct)
-            nTrees - trees_in_category
+            trees_in_category = math.ceil(n_trees * pct)
+            n_trees - trees_in_category
             area_total -= area
             trees.append([category, int(trees_in_category)])
 
