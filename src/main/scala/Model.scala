@@ -1,13 +1,18 @@
 package org.opentreemap.modeling
 
-import geotrellis._
-import geotrellis.source._
-import geotrellis.raster._
-import geotrellis.raster.op._
-import geotrellis.raster.op.zonal.summary._
-import geotrellis.feature._
+import geotrellis.Raster
+import geotrellis.RasterExtent
+import geotrellis.TypeByte
+import geotrellis.isData
+import geotrellis.NODATA
+import geotrellis.source.SeqSource
+import geotrellis.source.ValueSource
+import geotrellis.source.RasterSource
+import geotrellis.raster.op.zonal.summary.FullTileIntersection
+import geotrellis.raster.op.zonal.summary.PartialTileIntersection
+import geotrellis.feature.Polygon
+import geotrellis.feature.Geometry
 import geotrellis.feature.rasterize.Callback
-import geotrellis.Implicits._
 
 import geotrellis.feature.rasterize.Rasterizer
 
@@ -18,7 +23,7 @@ case class SummaryResult(layerSummaries: List[LayerSummary], score: Double)
 
 case class LayerRatio(sum: Int, count: Int) {
   def value = sum / count.toDouble
-  def combine(other: LayerRatio) = { 
+  def combine(other: LayerRatio) = {
     LayerRatio(sum + other.sum, count + other.count)
   }
 }
@@ -35,8 +40,8 @@ object LayerRatio {
 }
 
 object Model {
-  def weightedOverlay(layers: Iterable[String], 
-                      weights: Iterable[Int], 
+  def weightedOverlay(layers: Iterable[String],
+                      weights: Iterable[Int],
                       rasterExtent: RasterExtent): RasterSource =
     layers
       .zip(weights)
@@ -46,11 +51,11 @@ object Model {
           .localMultiply(weight)
        }
       .localAdd
- 
-  def summary(layers: Iterable[String], 
-              weights: Iterable[Int], 
+
+  def summary(layers: Iterable[String],
+              weights: Iterable[Int],
               polygon: jts.Polygon): ValueSource[SummaryResult] = {
-    val layerRatios: SeqSource[LayerSummary] = 
+    val layerRatios: SeqSource[LayerSummary] =
       layers
         .zip(weights)
         .map { case (layer, weight) =>
