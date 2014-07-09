@@ -13,3 +13,7 @@ TAGS
 .lib
 *.aux.xml
 *.jar
+data/catalog/*.json
+data/catalog/*.arg
+Thumbs.db
+
