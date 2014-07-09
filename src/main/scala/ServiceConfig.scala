@@ -5,7 +5,7 @@ import com.typesafe.config.ConfigFactory
 object ServiceConfig {
   private val config = ConfigFactory.load()
 
-  private def intFromEnvOrConfig(envVar: String, configKey: String):Int = {
+  private def intFromEnvOrConfig(envVar: String, configKey: String): Int = {
     Option(System.getenv(envVar)) match {
       case Some(x) => try {
           x.toInt 
@@ -16,10 +16,12 @@ object ServiceConfig {
     }
   }
 
-  private def stringFromEnvOrConfig(envVar: String, configKey: String):String = {
+  private def stringFromEnvOrConfig(envVar: String, configKey: String): String = {
     Option(System.getenv(envVar)).getOrElse(config.getString(configKey))
   }
 
   val host = stringFromEnvOrConfig("HOST", "geotrellis.host")
   val port = intFromEnvOrConfig("PORT", "geotrellis.port")
+  val staticPath = stringFromEnvOrConfig("STATIC_PATH", "server.static-path")
 }
+

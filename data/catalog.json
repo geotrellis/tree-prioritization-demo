@@ -1,5 +1,5 @@
 {
- "catalog": "GeoTrellis Catalog",
+ "catalog": "OpenTreeMap Modeling Catalog",
  "stores": [
   {
    "store": "data:fs",
