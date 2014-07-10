@@ -16,4 +16,5 @@ TAGS
 data/catalog/*.json
 data/catalog/*.arg
 Thumbs.db
+*.swp
 

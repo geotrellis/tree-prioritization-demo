@@ -1,42 +1,86 @@
-var server = ''
+var server = '';
 
-var getLayer = function(url, attrib) {
-    return L.tileLayer(url, { maxZoom: 18, attribution: attrib });
-};
+var weightedOverlay, map;
 
-var Layers = {
-    stamen: {
-        toner:  'http://{s}.tile.stamen.com/toner/{z}/{x}/{y}.png',
-        terrain: 'http://{s}.tile.stamen.com/terrain/{z}/{x}/{y}.png',
-        watercolor: 'http://{s}.tile.stamen.com/watercolor/{z}/{x}/{y}.png',
-        attrib: 'Map data &copy;2013 OpenStreetMap contributors, Tiles &copy;2013 Stamen Design'
+var WeightedOverlayControl = L.Control.extend({
+    options: {
+        position: 'topleft'
     },
-    mapBox: {
-        azavea: 'http://{s}.tiles.mapbox.com/v3/azavea.map-zbompf85/{z}/{x}/{y}.png',
-        attrib: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery &copy; <a href="http://mapbox.com">MapBox</a>'
+
+    onAdd: function(map) {
+        var layers = [
+            {name: 'Budget_Sum-huc08', weight: 0},
+            {name: 'Peo10_no-huc12', weight: 0},
+            {name: 'HUC_sqmi-huc12', weight: 0}
+        ];
+
+        var container = L.DomUtil.create('div', 'test-panel leaflet-bar');
+
+        var title = L.DomUtil.create('h4');
+        title.innerText = 'Weighted Overlay';
+        container.appendChild(title);
+
+        var update = function() {
+            weightedOverlay.setLayers(layers);
+        };
+
+        var addLayer = function(layer) {
+            var p = L.DomUtil.create('p');
+
+            var lbl = L.DomUtil.create('label');
+            lbl.innerText = layer.name + ' (' + layer.weight + ')';
+            p.appendChild(lbl);
+
+            var slider = L.DomUtil.create('input');
+            slider.type = 'range';
+            slider.min = -5;
+            slider.max = 5;
+            slider.step = 1;
+            L.DomEvent.addListener(slider, 'input', function(e) {
+                layer.weight = parseInt(e.target.value);
+                lbl.innerText = layer.name + ' (' + layer.weight + ')';
+            });
+            L.DomEvent.addListener(slider, 'change', update);
+            p.appendChild(slider);
+
+            container.appendChild(p);
+        };
+
+        _.each(layers, addLayer);
+
+        var btn = L.DomUtil.create('button');
+        btn.textContent = 'Update';
+        container.appendChild(btn);
+
+        L.DomEvent.addListener(btn, 'click', function() {
+            update();
+        });
+        L.DomEvent.disableClickPropagation(container);
+
+        return container;
     }
-};
+});
 
-var map = (function() {
-    var selected = getLayer(Layers.mapBox.azavea, Layers.mapBox.attrib);
-    var baseLayers = {
-        "Default": selected,
-        "Terrain": getLayer(Layers.stamen.terrain, Layers.stamen.attrib),
-        "Watercolor": getLayer(Layers.stamen.watercolor, Layers.stamen.attrib),
-        "Toner": getLayer(Layers.stamen.toner, Layers.stamen.attrib)
-    };
-
-    var m = L.map('map');
-
+map = (function() {
+    var m = L.map('map', {
+        zoomControl: false
+    });
     m.setView([39.952335, -75.163789], 12);
 
-    selected.addTo(m);
+    var baseMap = L.tileLayer(
+        'http://{s}.tiles.mapbox.com/v3/azavea.map-zbompf85/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery &copy; <a href="http://mapbox.com">MapBox</a>'
+        });
 
-    m.lc = L.control.layers(baseLayers).addTo(m);
+    m.addLayer(baseMap);
+    m.addControl(new WeightedOverlayControl({
+        weightedOverlay: weightedOverlay
+    }));
     return m;
-})()
+})();
 
-var weightedOverlay = (function() {
+weightedOverlay = (function() {
     var layers = [];
 
     var layersToWeights = {}
@@ -58,7 +102,6 @@ var weightedOverlay = (function() {
     update = function() {
         if(getLayers().length == 0) {
             if (WOLayer) {
-                map.lc.removeLayer(WOLayer);
                 map.removeLayer(WOLayer);
                 WOLayer = null;
             }
@@ -75,7 +118,6 @@ var weightedOverlay = (function() {
                 breaks = r.classBreaks;
 
                 if (WOLayer) {
-                    map.lc.removeLayer(WOLayer);
                     map.removeLayer(WOLayer);
                 }
 
@@ -101,9 +143,7 @@ var weightedOverlay = (function() {
                 })
 
                 WOLayer.setOpacity(opacity);
-                WOLayer.addTo(map);
-                map.lc.addOverlay(WOLayer, "Weighted Overlay");
-
+                map.addLayer(WOLayer, "Weighted Overlay");
             }
         });
     };
@@ -132,30 +172,4 @@ var weightedOverlay = (function() {
         update: update
     };
 })();
-
-var setupSize = function() {
-    var bottomPadding = 10;
-
-    var resize = function(){
-        var pane = $('#main');
-        var height = $(window).height() - pane.offset().top - bottomPadding;
-        pane.css({'height': height +'px'});
-
-        var sidebar = $('#tabBody');
-        var height = $(window).height() - sidebar.offset().top - bottomPadding;
-        sidebar.css({'height': height +'px'});
-
-        var mapDiv = $('#map');
-		var wrapDiv = $('#wrap');
-        var height = $(window).height() - mapDiv.offset().top - bottomPadding - wrapDiv.height();
-        mapDiv.css({'height': height +'px'});
-        map.invalidateSize();
-    };
-    resize();
-    $(window).resize(resize);
-};
-
-$(document).ready(function() {
-    //setupSize();
-});
 
