@@ -94,21 +94,7 @@ trait ModelingService extends HttpService {
 
             val model = Model.weightedOverlay(layers, weights, re)
 
-            val overlay =
-              if(mask == "") {
-                model
-              } else {
-                GeoJsonReader.parse(mask) match {
-                  case Some(geomArray) if (geomArray.length > 0) =>
-                    val transformed =
-                      geomArray.head.mapGeom { g =>
-                        Transformer.transform(g, Projections.LatLong, Projections.WebMercator)
-                      }
-                    model.mask(transformed)
-                  case _ =>
-                    throw new Exception(s"Invalid GeoJSON: $mask")
-                }
-              }
+            val overlay = if (mask == "") model else model.mask(parseGeoJson(mask))
 
             val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
             val ramp =
@@ -138,23 +124,10 @@ trait ModelingService extends HttpService {
           (polygonJson, layersString, weightsString) => {
             val start = System.currentTimeMillis()
 
-            val poly =
-              GeoJsonReader.parse(polygonJson) match {
-                case Some(geomArray) if (geomArray.length > 0) =>
-                  geomArray.head.geom match {
-                    case p: jts.Polygon =>
-                      Transformer.transform(p, Projections.LatLong, Projections.WebMercator)
-                        .asInstanceOf[jts.Polygon]
-                    case _ =>
-                      throw new Exception(s"Invalid GeoJSON: $polygonJson")
-                  }
-                case _ =>
-                  throw new Exception(s"Invalid GeoJSON: $polygonJson")
-              }
-
             val layers = layersString.split(",")
             val weights = weightsString.split(",").map(_.toInt)
 
+            var poly = parseGeoJson(polygonJson)
             val summary = Model.summary(layers, weights, poly)
 
             summary.run match {
@@ -184,6 +157,21 @@ trait ModelingService extends HttpService {
     } ~
     pathPrefix("") {
       getFromDirectory(staticPath)
+    }
+  }
+
+  def parseGeoJson(geoJson: String): jts.Polygon = {
+    GeoJsonReader.parse(geoJson) match {
+      case Some(geomArray) if (geomArray.length > 0) =>
+        geomArray.head.geom match {
+          case p: jts.Polygon =>
+            Transformer.transform(p, Projections.LatLong, Projections.WebMercator)
+              .asInstanceOf[jts.Polygon]
+          case _ =>
+            throw new Exception(s"Invalid GeoJSON: $geoJson")
+        }
+      case _ =>
+        throw new Exception(s"Invalid GeoJSON: $geoJson")
     }
   }
 }
