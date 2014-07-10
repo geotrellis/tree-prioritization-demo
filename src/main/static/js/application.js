@@ -2,18 +2,18 @@ var server = '';
 
 var weightedOverlay, map;
 
+var layers = [
+    {name: 'Budget_Sum-huc08', weight: 0},
+    {name: 'Peo10_no-huc12', weight: 0},
+    {name: 'HUC_sqmi-huc12', weight: 0}
+];
+
 var WeightedOverlayControl = L.Control.extend({
     options: {
         position: 'topleft'
     },
 
     onAdd: function(map) {
-        var layers = [
-            {name: 'Budget_Sum-huc08', weight: 0},
-            {name: 'Peo10_no-huc12', weight: 0},
-            {name: 'HUC_sqmi-huc12', weight: 0}
-        ];
-
         var container = L.DomUtil.create('div', 'test-panel leaflet-bar');
 
         var title = L.DomUtil.create('h4');
@@ -21,7 +21,7 @@ var WeightedOverlayControl = L.Control.extend({
         container.appendChild(title);
 
         var update = function() {
-            weightedOverlay.setLayers(layers);
+            weightedOverlay.update();
         };
 
         var addLayer = function(layer) {
@@ -55,8 +55,8 @@ var WeightedOverlayControl = L.Control.extend({
         L.DomEvent.addListener(btn, 'click', function() {
             update();
         });
-        L.DomEvent.disableClickPropagation(container);
 
+        L.DomEvent.disableClickPropagation(container);
         return container;
     }
 });
@@ -65,6 +65,10 @@ map = (function() {
     var m = L.map('map', {
         zoomControl: false
     });
+
+    var maskGroup = new L.FeatureGroup(),
+        mask = null;
+
     m.setView([39.952335, -75.163789], 12);
 
     var baseMap = L.tileLayer(
@@ -73,34 +77,75 @@ map = (function() {
             attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery &copy; <a href="http://mapbox.com">MapBox</a>'
         });
 
+    m.on('draw:created', function(e) {
+        if (mask) {
+            maskGroup.removeLayer(mask);
+            mask = null;
+        }
+        mask = e.layer;
+        maskGroup.addLayer(mask);
+        weightedOverlay.update();
+    });
+    m.on('draw:edited', function(e) {
+        weightedOverlay.update();
+    });
+    m.on('draw:deleted', function(e) {
+        mask = null;
+        weightedOverlay.update();
+    });
+
     m.addLayer(baseMap);
-    m.addControl(new WeightedOverlayControl({
-        weightedOverlay: weightedOverlay
+    m.addLayer(maskGroup);
+    m.addControl(new WeightedOverlayControl());
+    m.addControl(new L.Control.Draw({
+        draw: {
+            polyline: false,
+            circle: false,
+            marker: false,
+            polygon: {
+                shapeOptions: {
+                    fill: false
+                }
+            },
+            rectangle: {
+                shapeOptions: {
+                    fill: false
+                }
+            }
+        },
+        edit: {
+            featureGroup: maskGroup
+        }
     }));
-    return m;
+
+    return {
+        getMask: function() {
+            return mask;
+        },
+        getRawMap: function() {
+            return m;
+        }
+    };
 })();
 
 weightedOverlay = (function() {
-    var layers = [];
-
     var layersToWeights = {}
-
     var breaks = null;
     var WOLayer = null;
     var opacity = 0.5;
     var colorRamp = "blue-to-red";
     var numBreaks = 10;
 
-    getLayers = function() {
+    var getLayers = function() {
         return _.map(layers, function(l) { return l.name; }).join(",");
     };
 
-    getWeights   = function() {
+    var getWeights = function() {
         return _.map(layers, function(l) { return l.weight; }).join(",");
     };
 
-    update = function() {
-        if(getLayers().length == 0) {
+    var update = function() {
+        if (getLayers().length == 0) {
             if (WOLayer) {
                 map.removeLayer(WOLayer);
                 WOLayer = null;
@@ -118,17 +163,17 @@ weightedOverlay = (function() {
                 breaks = r.classBreaks;
 
                 if (WOLayer) {
-                    map.removeLayer(WOLayer);
+                    map.getRawMap().removeLayer(WOLayer);
                 }
 
                 var layerNames = getLayers();
-                if(layerNames == "") return;
+                if (layerNames == "") return;
 
                 var geoJson = "";
-                //var polygon = summary.getPolygon();
-                //if(polygon != null) {
-                //    geoJson = GJ.fromPolygon(polygon);
-                //}
+                var polygon = map.getMask();
+                if (polygon != null) {
+                    geoJson = GJ.fromPolygon(polygon);
+                }
 
                 WOLayer = new L.TileLayer.WMS(server + "gt/wo", {
                     layers: 'default',
@@ -143,32 +188,12 @@ weightedOverlay = (function() {
                 })
 
                 WOLayer.setOpacity(opacity);
-                map.addLayer(WOLayer, "Weighted Overlay");
+                map.getRawMap().addLayer(WOLayer, "Weighted Overlay");
             }
         });
     };
 
     return {
-        activeLayers: getLayers,
-        activeWeights: getWeights,
-        setLayers: function(ls) {
-            layers = ls;
-            update();
-        },
-        setNumBreaks: function(nb) {
-            numBreaks = nb;
-            update();
-        },
-        setOpacity: function(o) {
-            opacity = o;
-            update();
-        },
-        setColorRamp: function(key) {
-            colorRamp = key;
-            update();
-        },
-        getColorRamp: function() { return colorRamp; },
-        getMapLayer: function() { return WOLayer; },
         update: update
     };
 })();
