@@ -54,7 +54,7 @@ object Model {
 
   def summary(layers: Iterable[String],
               weights: Iterable[Int],
-              polygon: jts.Polygon): ValueSource[SummaryResult] = {
+              polygon: jts.Geometry): ValueSource[SummaryResult] = {
     val layerRatios: SeqSource[LayerSummary] =
       layers
         .zip(weights)

@@ -8,9 +8,9 @@ object ServiceConfig {
   private def intFromEnvOrConfig(envVar: String, configKey: String): Int = {
     Option(System.getenv(envVar)) match {
       case Some(x) => try {
-          x.toInt 
-        } catch { 
-          case _ : Throwable => config.getInt(configKey) 
+          x.toInt
+        } catch {
+          case _ : Throwable => config.getInt(configKey)
         }
       case None => config.getInt(configKey)
     }
@@ -23,5 +23,6 @@ object ServiceConfig {
   val host = stringFromEnvOrConfig("HOST", "geotrellis.host")
   val port = intFromEnvOrConfig("PORT", "geotrellis.port")
   val staticPath = stringFromEnvOrConfig("STATIC_PATH", "server.static-path")
+  val featuresPath = stringFromEnvOrConfig("FEATURES_PATH", "server.features-path")
 }
 
