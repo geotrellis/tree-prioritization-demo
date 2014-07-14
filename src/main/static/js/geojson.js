@@ -6,7 +6,7 @@ var GJ = (function () {
             a.push([latlngs[i].lat,latlngs[i].lng]) 
         }
 
-        return JSON.stringify({ 
+        return JSON.stringify({
             "type" : "Feature",
             "properties" : {},
             "geometry" : {
@@ -20,3 +20,4 @@ var GJ = (function () {
         fromPolygon : fromPolygon
     }
 })();
+

@@ -1,5 +1,3 @@
-var server = '';
-
 var weightedOverlay, map;
 
 var layers = [
@@ -8,6 +6,45 @@ var layers = [
     {name: 'HUC_sqmi-huc12', weight: 0}
 ];
 
+var FeatureMaskControl = L.Control.extend({
+    options: {
+        position: 'topleft'
+    },
+
+    onAdd: function(rawMap) {
+        var container = L.DomUtil.create('div', 'test-panel leaflet-bar');
+
+        var featureMask = function(featureId, center, zoom) {
+            var btn = L.DomUtil.create('button');
+            btn.textContent = featureId;
+            container.appendChild(btn);
+
+            container.appendChild(document.createTextNode(' '));
+
+            L.DomEvent.addListener(btn, 'click', function() {
+                var args = {
+                    layerName: "test",
+                    featureId: featureId
+                };
+                $.getJSON('mask', args, function(data) {
+                    var layer = new L.GeoJSON(data);
+                    layer.setStyle({
+                        fill: false
+                    });
+                    map.setFeatureMask(featureId, layer);
+                    rawMap.setView(center, zoom);
+                });
+            });
+        };
+
+        featureMask('Philadelphia', [39.9852753581228, -75.15214920043945], 12);
+        featureMask('NorthCarolina', [35.303918565311704, -79.85687255859375], 8);
+
+        L.DomEvent.disableClickPropagation(container);
+        return container;
+    }
+});
+
 var WeightedOverlayControl = L.Control.extend({
     options: {
         position: 'topleft'
@@ -15,10 +52,6 @@ var WeightedOverlayControl = L.Control.extend({
 
     onAdd: function(map) {
         var container = L.DomUtil.create('div', 'test-panel leaflet-bar');
-
-        var title = L.DomUtil.create('h4');
-        title.innerText = 'Weighted Overlay';
-        container.appendChild(title);
 
         var update = function() {
             weightedOverlay.update();
@@ -67,9 +100,10 @@ map = (function() {
     });
 
     var maskGroup = new L.FeatureGroup(),
-        mask = null;
+        polyMask = null,
+        featureMask = null;
 
-    m.setView([39.952335, -75.163789], 12);
+    m.setView([39.33429742980725, -97.05322265625], 5);
 
     var baseMap = L.tileLayer(
         'http://{s}.tiles.mapbox.com/v3/azavea.map-zbompf85/{z}/{x}/{y}.png', {
@@ -77,26 +111,41 @@ map = (function() {
             attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery &copy; <a href="http://mapbox.com">MapBox</a>'
         });
 
-    m.on('draw:created', function(e) {
-        if (mask) {
-            maskGroup.removeLayer(mask);
-            mask = null;
-        }
-        mask = e.layer;
-        maskGroup.addLayer(mask);
+    var setPolygonMask = function(layer) {
+        featureMask = null;
+        polyMask = layer;
+        maskGroup.clearLayers();
+        maskGroup.addLayer(layer);
         weightedOverlay.update();
+    };
+
+    var setFeatureMask = function(featureId, layer) {
+        polyMask = null;
+        featureMask = {
+            layer: layer,
+            featureId: featureId
+        };
+        maskGroup.clearLayers();
+        maskGroup.addLayer(layer);
+        weightedOverlay.update();
+    };
+
+    m.on('draw:created', function(e) {
+        setPolygonMask(e.layer);
     });
     m.on('draw:edited', function(e) {
         weightedOverlay.update();
     });
     m.on('draw:deleted', function(e) {
-        mask = null;
+        polyMask = null;
+        featureMask = null;
         weightedOverlay.update();
     });
 
     m.addLayer(baseMap);
     m.addLayer(maskGroup);
     m.addControl(new WeightedOverlayControl());
+    m.addControl(new FeatureMaskControl());
     m.addControl(new L.Control.Draw({
         draw: {
             polyline: false,
@@ -119,9 +168,13 @@ map = (function() {
     }));
 
     return {
-        getMask: function() {
-            return mask;
+        getPolygonMask: function() {
+            return polyMask;
         },
+        getFeatureMask: function() {
+            return featureMask;
+        },
+        setFeatureMask: setFeatureMask,
         getRawMap: function() {
             return m;
         }
@@ -154,7 +207,7 @@ weightedOverlay = (function() {
         };
 
         $.ajax({
-            url: server + 'gt/breaks',
+            url: 'gt/breaks',
             data: { 'layers' : getLayers(),
                     'weights' : getWeights(),
                     'numBreaks': numBreaks },
@@ -170,12 +223,20 @@ weightedOverlay = (function() {
                 if (layerNames == "") return;
 
                 var geoJson = "";
-                var polygon = map.getMask();
-                if (polygon != null) {
-                    geoJson = GJ.fromPolygon(polygon);
+                var layerName = "";
+                var featureId = "";
+
+                var polyMask = map.getPolygonMask();
+                var featureMask = map.getFeatureMask();
+
+                if (polyMask) {
+                    geoJson = GJ.fromPolygon(polyMask);
+                } else if (featureMask) {
+                    layerName = "test";
+                    featureId = featureMask.featureId;
                 }
 
-                WOLayer = new L.TileLayer.WMS(server + "gt/wo", {
+                WOLayer = new L.TileLayer.WMS("gt/wo", {
                     layers: 'default',
                     format: 'image/png',
                     breaks: breaks,
@@ -184,6 +245,8 @@ weightedOverlay = (function() {
                     weights: getWeights(),
                     colorRamp: colorRamp,
                     mask: encodeURIComponent(geoJson),
+                    layerName: layerName,
+                    featureId: featureId,
                     attribution: 'Azavea'
                 })
 
