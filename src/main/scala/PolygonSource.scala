@@ -48,6 +48,9 @@ class GeoJson(geoJson: String) {
   }
 
   private def transform(geom: jts.Geometry): jts.Geometry = {
+    // GeoTrellis expects coords in (lat, lng) format instead of the (lng, lat)
+    // format that is standard in the GeoJSON spec.
+    Transformer.swapCoords(geom)
     Transformer.transform(geom, Projections.LatLong, Projections.WebMercator)
   }
 }

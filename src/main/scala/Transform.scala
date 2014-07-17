@@ -35,5 +35,17 @@ object Transformer {
     }
     JTS.transform(geom, transformCache((fromCRS, toCRS)))
   }
+
+  def swapCoords(geom: jts.Geometry) {
+    geom.apply(SwapCoordsFilter)
+  }
+
+  private object SwapCoordsFilter extends jts.CoordinateFilter {
+    override def filter(coord: jts.Coordinate) {
+      val x = coord.x
+      coord.x = coord.y
+      coord.y = x
+    }
+  }
 }
 
