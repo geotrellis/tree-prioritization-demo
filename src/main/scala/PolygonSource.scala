@@ -10,16 +10,18 @@ trait PolygonSource {
 }
 
 class FilePolygonSource(featuresPath: String) extends PolygonSource {
-  def getGeoJson(layerName: String, featureId: String): Option[GeoJson] = {
-    val file = new File(featuresPath, featureId + ".geojson")
-    val source = Source.fromFile(file)
+  override def getGeoJson(layerName: String, featureId: String): Option[GeoJson] = {
+    val rootDir = new File(featuresPath)
+    val layerDir = new File(rootDir, layerName)
+    val featureFile = new File(layerDir, featureId + ".geojson")
+    val source = Source.fromFile(featureFile)
     val geoJson = source.getLines.mkString
     Some(new GeoJson(geoJson))
   }
 }
 
 class StringPolygonSource(geoJson: String) extends PolygonSource {
-  def getGeoJson(layerName: String, featureId: String): Option[GeoJson] = {
+  override def getGeoJson(layerName: String, featureId: String): Option[GeoJson] = {
     return Some(new GeoJson(geoJson))
   }
 }

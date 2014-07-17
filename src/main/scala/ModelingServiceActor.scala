@@ -80,7 +80,9 @@ trait ModelingService extends HttpService {
                'layerName ? "",
                'featureId ? "") {
       (layersParam, weightsParam, numBreaks, maskParam, layerName, featureId) => {
+        // TODO: Read extent from query string (bbox).
         val extent = Extent(-19840702.0356, 2143556.8396, -7452702.0356, 11537556.8396)
+        // TODO: Dynamic breaks based on configurable breaks resolution.
         val re = RasterExtent(extent, 256, 256)
 
         val layers = layersParam.split(",")

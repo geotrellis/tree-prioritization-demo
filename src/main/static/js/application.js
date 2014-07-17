@@ -39,7 +39,6 @@ var FeatureMaskControl = L.Control.extend({
 
         featureMask('Philadelphia', [39.9852753581228, -75.15214920043945], 12);
         featureMask('NorthCarolina', [35.303918565311704, -79.85687255859375], 8);
-        featureMask('Triangle', [35.303918565311704, -79.85687255859375], 8);
 
         L.DomEvent.disableClickPropagation(container);
         return container;
