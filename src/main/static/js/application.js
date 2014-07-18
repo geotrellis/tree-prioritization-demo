@@ -206,35 +206,40 @@ weightedOverlay = (function() {
             return;
         };
 
+        if (WOLayer) {
+            map.getRawMap().removeLayer(WOLayer);
+        }
+
+        var layerNames = getLayers();
+        if (layerNames == "") return;
+
+        var geoJson = "";
+        var layerName = "";
+        var featureId = "";
+
+        var polyMask = map.getPolygonMask();
+        var featureMask = map.getFeatureMask();
+
+        if (polyMask) {
+            geoJson = GJ.fromPolygon(polyMask);
+        } else if (featureMask) {
+            layerName = "test";
+            featureId = featureMask.featureId;
+        }
+
         $.ajax({
             url: 'gt/breaks',
-            data: { 'layers' : getLayers(),
-                    'weights' : getWeights(),
-                    'numBreaks': numBreaks },
+            data: {
+                    layers: getLayers(),
+                    weights: getWeights(),
+                    numBreaks: numBreaks,
+                    mask: geoJson,
+                    layerName: layerName,
+                    featureId: featureId
+            },
             dataType: "json",
             success: function(r) {
                 breaks = r.classBreaks;
-
-                if (WOLayer) {
-                    map.getRawMap().removeLayer(WOLayer);
-                }
-
-                var layerNames = getLayers();
-                if (layerNames == "") return;
-
-                var geoJson = "";
-                var layerName = "";
-                var featureId = "";
-
-                var polyMask = map.getPolygonMask();
-                var featureMask = map.getFeatureMask();
-
-                if (polyMask) {
-                    geoJson = GJ.fromPolygon(polyMask);
-                } else if (featureMask) {
-                    layerName = "test";
-                    featureId = featureMask.featureId;
-                }
 
                 WOLayer = new L.TileLayer.WMS("gt/wo", {
                     layers: 'default',
