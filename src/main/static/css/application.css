@@ -3,5 +3,7 @@ body { margin: 0; padding: 0; overflow: hidden; }
 .test-panel {
     background: white;
     padding: 15px;
+    max-height: 400px;
+    overflow: auto;
 }
 

@@ -1,10 +1,40 @@
-var weightedOverlay, map;
+var weightedOverlay, map, summary;
 
 var layers = [
     {name: 'Budget_Sum-huc08', weight: 0},
     {name: 'Peo10_no-huc12', weight: 0},
     {name: 'HUC_sqmi-huc12', weight: 0}
 ];
+
+// Convert JSON to HTML table.
+var tablify = function(json) {
+    if (typeof json !== 'object') {
+        return json;
+    }
+    var rows = [];
+    for (var k in json) {
+        rows.push('<td style="border:1px solid #999;padding:5px;">' + k + '</td>'
+           + '<td style="border:1px solid #999;padding:5px;">' + tablify(json[k]) + '</td>');
+    }
+    return '<table>' + rows.join('</tr><tr>')  + '</table>';
+};
+
+var SummaryControl = L.Control.extend({
+    options: {
+        position: 'topright'
+    },
+
+    initialize: function(options) {
+        this.json = options.json;
+    },
+
+    onAdd: function(rawMap) {
+        var container = L.DomUtil.create('div', 'test-panel leaflet-bar');
+        container.innerHTML = tablify(this.json);
+        L.DomEvent.disableClickPropagation(container);
+        return container;
+    }
+});
 
 var FeatureMaskControl = L.Control.extend({
     options: {
@@ -50,7 +80,7 @@ var WeightedOverlayControl = L.Control.extend({
         position: 'topleft'
     },
 
-    onAdd: function(map) {
+    onAdd: function(rawMap) {
         var container = L.DomUtil.create('div', 'test-panel leaflet-bar');
 
         var update = function() {
@@ -210,6 +240,11 @@ weightedOverlay = (function() {
             map.getRawMap().removeLayer(WOLayer);
         }
 
+        if (summary) {
+            map.getRawMap().removeControl(summary);
+            summary = null;
+        }
+
         var layerNames = getLayers();
         if (layerNames == "") return;
 
@@ -230,12 +265,12 @@ weightedOverlay = (function() {
         $.ajax({
             url: 'gt/breaks',
             data: {
-                    layers: getLayers(),
-                    weights: getWeights(),
-                    numBreaks: numBreaks,
-                    mask: geoJson,
-                    layerName: layerName,
-                    featureId: featureId
+                layers: getLayers(),
+                weights: getWeights(),
+                numBreaks: numBreaks,
+                mask: geoJson,
+                layerName: layerName,
+                featureId: featureId
             },
             dataType: "json",
             success: function(r) {
@@ -257,6 +292,21 @@ weightedOverlay = (function() {
 
                 WOLayer.setOpacity(opacity);
                 map.getRawMap().addLayer(WOLayer, "Weighted Overlay");
+            }
+        });
+
+        $.ajax({
+            url: 'gt/histogram',
+            data: {
+                layer: layers[0].name,
+                mask: geoJson,
+                layerName: layerName,
+                featureId: featureId
+            },
+            dataType: "json",
+            success: function(r) {
+                summary = new SummaryControl({ json: r });
+                map.getRawMap().addControl(summary);
             }
         });
     };
