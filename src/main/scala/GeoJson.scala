@@ -5,27 +5,6 @@ import scala.io.Source
 import geotrellis.data.geojson.GeoJsonReader
 import com.vividsolutions.jts.{ geom => jts }
 
-trait PolygonSource {
-  def getGeoJson(layerName: String, featureId: String): Option[GeoJson]
-}
-
-class FilePolygonSource(featuresPath: String) extends PolygonSource {
-  override def getGeoJson(layerName: String, featureId: String): Option[GeoJson] = {
-    val rootDir = new File(featuresPath)
-    val layerDir = new File(rootDir, layerName)
-    val featureFile = new File(layerDir, featureId + ".geojson")
-    val source = Source.fromFile(featureFile)
-    val geoJson = source.getLines.mkString
-    Some(new GeoJson(geoJson))
-  }
-}
-
-class StringPolygonSource(geoJson: String) extends PolygonSource {
-  override def getGeoJson(layerName: String, featureId: String): Option[GeoJson] = {
-    return Some(new GeoJson(geoJson))
-  }
-}
-
 class GeoJson(geoJson: String) {
   def toGeometry: Option[jts.Geometry] =
     if (geoJson == "")
