@@ -36,45 +36,6 @@ var SummaryControl = L.Control.extend({
     }
 });
 
-var FeatureMaskControl = L.Control.extend({
-    options: {
-        position: 'topleft'
-    },
-
-    onAdd: function(rawMap) {
-        var container = L.DomUtil.create('div', 'test-panel leaflet-bar');
-
-        var featureMask = function(featureId, center, zoom) {
-            var btn = L.DomUtil.create('button');
-            btn.textContent = featureId;
-            container.appendChild(btn);
-
-            container.appendChild(document.createTextNode(' '));
-
-            L.DomEvent.addListener(btn, 'click', function() {
-                var args = {
-                    layerName: "test",
-                    featureId: featureId
-                };
-                $.getJSON('mask', args, function(data) {
-                    var layer = new L.GeoJSON(data);
-                    layer.setStyle({
-                        fill: false
-                    });
-                    map.setFeatureMask(featureId, layer);
-                    rawMap.setView(center, zoom);
-                });
-            });
-        };
-
-        featureMask('Philadelphia', [39.9852753581228, -75.15214920043945], 12);
-        featureMask('NorthCarolina', [35.303918565311704, -79.85687255859375], 8);
-
-        L.DomEvent.disableClickPropagation(container);
-        return container;
-    }
-});
-
 var WeightedOverlayControl = L.Control.extend({
     options: {
         position: 'topleft'
@@ -130,8 +91,7 @@ map = (function() {
     });
 
     var maskGroup = new L.FeatureGroup(),
-        polyMask = null,
-        featureMask = null;
+        polyMask = null;
 
     m.setView([39.33429742980725, -97.05322265625], 5);
 
@@ -142,19 +102,7 @@ map = (function() {
         });
 
     var setPolygonMask = function(layer) {
-        featureMask = null;
         polyMask = layer;
-        maskGroup.clearLayers();
-        maskGroup.addLayer(layer);
-        weightedOverlay.update();
-    };
-
-    var setFeatureMask = function(featureId, layer) {
-        polyMask = null;
-        featureMask = {
-            layer: layer,
-            featureId: featureId
-        };
         maskGroup.clearLayers();
         maskGroup.addLayer(layer);
         weightedOverlay.update();
@@ -168,14 +116,12 @@ map = (function() {
     });
     m.on('draw:deleted', function(e) {
         polyMask = null;
-        featureMask = null;
         weightedOverlay.update();
     });
 
     m.addLayer(baseMap);
     m.addLayer(maskGroup);
     m.addControl(new WeightedOverlayControl());
-    m.addControl(new FeatureMaskControl());
     m.addControl(new L.Control.Draw({
         draw: {
             polyline: false,
@@ -201,10 +147,6 @@ map = (function() {
         getPolygonMask: function() {
             return polyMask;
         },
-        getFeatureMask: function() {
-            return featureMask;
-        },
-        setFeatureMask: setFeatureMask,
         getRawMap: function() {
             return m;
         }
@@ -249,17 +191,11 @@ weightedOverlay = (function() {
         if (layerNames == "") return;
 
         var geoJson = "";
-        var layerName = "";
-        var featureId = "";
 
         var polyMask = map.getPolygonMask();
-        var featureMask = map.getFeatureMask();
 
         if (polyMask) {
             geoJson = GJ.fromPolygon(polyMask);
-        } else if (featureMask) {
-            layerName = "test";
-            featureId = featureMask.featureId;
         }
 
         $.ajax({
@@ -268,9 +204,7 @@ weightedOverlay = (function() {
                 layers: getLayers(),
                 weights: getWeights(),
                 numBreaks: numBreaks,
-                mask: geoJson,
-                layerName: layerName,
-                featureId: featureId
+                mask: geoJson
             },
             dataType: "json",
             success: function(r) {
@@ -285,8 +219,6 @@ weightedOverlay = (function() {
                     weights: getWeights(),
                     colorRamp: colorRamp,
                     mask: encodeURIComponent(geoJson),
-                    layerName: layerName,
-                    featureId: featureId,
                     attribution: 'Azavea'
                 })
 
@@ -299,9 +231,7 @@ weightedOverlay = (function() {
             url: 'gt/histogram',
             data: {
                 layer: layers[0].name,
-                mask: geoJson,
-                layerName: layerName,
-                featureId: featureId
+                mask: geoJson
             },
             dataType: "json",
             success: function(r) {

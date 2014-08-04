@@ -6,7 +6,6 @@ import geotrellis.RasterExtent
 import geotrellis.Png
 import geotrellis.source.ValueSource
 import geotrellis.source.RasterSource
-import geotrellis.data.geojson.GeoJsonReader
 import geotrellis.render.ColorRamps
 import geotrellis.services.ColorRampMap
 import geotrellis.feature.Polygon
@@ -34,14 +33,6 @@ class ModelingServiceActor() extends Actor with ModelingService {
 trait ModelingService extends HttpService {
   implicit def executionContext = actorRefFactory.dispatcher
 
-  def getMaskSource(mask: String, layerName: String, featureId: String): PolygonSource = {
-    if (layerName != "" && featureId != "") {
-      new FilePolygonSource(ServiceConfig.featuresPath)
-    } else {
-      new StringPolygonSource(mask)
-    }
-  }
-
   def applyMask(model: RasterSource, mask: GeoJson): RasterSource = {
     mask.toGeometry match {
       case Some(p: jts.Polygon) => model.mask(p)
@@ -54,18 +45,6 @@ trait ModelingService extends HttpService {
     getFromFile(ServiceConfig.staticPath + "/index.html")
   }
 
-  val maskRoute = path("mask") {
-    parameters('layerName, 'featureId) {
-      (layerName, featureId) => {
-        val source = getMaskSource("", layerName, featureId)
-        source.getGeoJson(layerName, featureId) match {
-          case Some(shape) => complete(shape.toString)
-          case None => failWith(new Exception("Feature mask not found."))
-        }
-      }
-    }
-  }
-
   val colorsRoute = path("gt" / "colors") {
     complete(ColorRampMap.getJson)
   }
@@ -74,10 +53,8 @@ trait ModelingService extends HttpService {
     parameters('layers,
                'weights,
                'numBreaks.as[Int],
-               'mask ? "",
-               'layerName ? "",
-               'featureId ? "") {
-      (layersParam, weightsParam, numBreaks, maskParam, layerName, featureId) => {
+               'mask ? "") {
+      (layersParam, weightsParam, numBreaks, maskParam) => {
         // TODO: Read extent from query string (bbox).
         val extent = Extent(-19840702.0356, 2143556.8396, -7452702.0356, 11537556.8396)
         // TODO: Dynamic breaks based on configurable breaks resolution.
@@ -86,13 +63,8 @@ trait ModelingService extends HttpService {
         val layers = layersParam.split(",")
         val weights = weightsParam.split(",").map(_.toInt)
 
-        val maskSource = getMaskSource(maskParam, layerName, featureId)
-        val mask = maskSource.getGeoJson(layerName, featureId) match {
-          case Some(m) => m
-          case None => throw new Exception("Feature mask not found.")
-
-        }
         val model = Model.weightedOverlay(layers, weights, re)
+        val mask = new GeoJson(maskParam)
         val overlay = applyMask(model, mask)
 
         overlay
@@ -122,11 +94,9 @@ trait ModelingService extends HttpService {
                'palette ? "ff0000,ffff00,00ff00,0000ff",
                'breaks,
                'colorRamp ? "blue-to-red",
-               'mask ? "",
-               'layerName ? "",
-               'featureId ? "") {
+               'mask ? "") {
         (_, _, _, _, bbox, cols, rows, layersString, weightsString,
-          palette, breaksString, colorRamp, maskParam, layerName, featureId) => {
+          palette, breaksString, colorRamp, maskParam) => {
           val extent = Extent.fromString(bbox)
           val re = RasterExtent(extent, cols, rows)
 
@@ -134,13 +104,8 @@ trait ModelingService extends HttpService {
           val weights = weightsString.split(",").map(_.toInt)
           val breaks = breaksString.split(",").map(_.toInt)
 
-          val maskSource = getMaskSource(maskParam, layerName, featureId)
-          val mask = maskSource.getGeoJson(layerName, featureId) match {
-            case Some(m) => m
-            case None => throw new Exception("Feature mask not found.")
-          }
-
           val model = Model.weightedOverlay(layers, weights, re)
+          val mask = new GeoJson(maskParam)
           val overlay = applyMask(model, mask)
 
           val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
@@ -163,23 +128,16 @@ trait ModelingService extends HttpService {
   }
 
   val histogramRoute = path("gt" / "histogram") {
-    parameters('layer,
-               'mask ? "",
-               'layerName ? "",
-               'featureId ? "") {
-      (layerParam, maskParam, layerName, featureId) => {
+    parameters('layer, 'mask ? "") {
+      (layerParam, maskParam) => {
         val start = System.currentTimeMillis()
 
-        val maskSource = getMaskSource(maskParam, layerName, featureId)
-        val mask = maskSource.getGeoJson(layerName, featureId) match {
-          case Some(m) => m
-          case None => throw new Exception("Feature mask not found.")
-        }
-
+        val mask = new GeoJson(maskParam)
         val rs = RasterSource(layerParam)
 
         val summary = mask.toGeometry match {
-          case Some(p) => rs.zonalHistogram(Polygon(p, 0))
+          // Convert JTS geometry to GeoTrellis feature polygon.
+          case Some(pMask) => rs.zonalHistogram(Polygon(pMask, 0))
           case None => rs.histogram
         }
 
@@ -206,7 +164,6 @@ trait ModelingService extends HttpService {
 
   val serviceRoute =
     indexRoute ~
-    maskRoute ~
     colorsRoute ~
     breaksRoute ~
     overlayRoute ~
