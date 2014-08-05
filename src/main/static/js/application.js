@@ -90,8 +90,7 @@ map = (function() {
         zoomControl: false
     });
 
-    var maskGroup = new L.FeatureGroup(),
-        polyMask = null;
+    var maskGroup = new L.FeatureGroup();
 
     m.setView([39.33429742980725, -97.05322265625], 5);
 
@@ -101,21 +100,14 @@ map = (function() {
             attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery &copy; <a href="http://mapbox.com">MapBox</a>'
         });
 
-    var setPolygonMask = function(layer) {
-        polyMask = layer;
-        maskGroup.clearLayers();
-        maskGroup.addLayer(layer);
-        weightedOverlay.update();
-    };
-
     m.on('draw:created', function(e) {
-        setPolygonMask(e.layer);
+        maskGroup.addLayer(e.layer);
+        weightedOverlay.update();
     });
     m.on('draw:edited', function(e) {
         weightedOverlay.update();
     });
     m.on('draw:deleted', function(e) {
-        polyMask = null;
         weightedOverlay.update();
     });
 
@@ -144,8 +136,8 @@ map = (function() {
     }));
 
     return {
-        getPolygonMask: function() {
-            return polyMask;
+        getMaskGeoJSON: function() {
+            return maskGroup.toGeoJSON();
         },
         getRawMap: function() {
             return m;
@@ -170,33 +162,20 @@ weightedOverlay = (function() {
     };
 
     var update = function() {
-        if (getLayers().length == 0) {
-            if (WOLayer) {
-                map.removeLayer(WOLayer);
-                WOLayer = null;
-            }
+        var layerNames = getLayers();
+        if (layerNames == "") {
             return;
-        };
+        }
 
         if (WOLayer) {
             map.getRawMap().removeLayer(WOLayer);
         }
-
         if (summary) {
             map.getRawMap().removeControl(summary);
             summary = null;
         }
 
-        var layerNames = getLayers();
-        if (layerNames == "") return;
-
-        var geoJson = "";
-
-        var polyMask = map.getPolygonMask();
-
-        if (polyMask) {
-            geoJson = GJ.fromPolygon(polyMask);
-        }
+        var geoJson = JSON.stringify(map.getMaskGeoJSON());
 
         $.ajax({
             url: 'gt/breaks',
@@ -218,9 +197,13 @@ weightedOverlay = (function() {
                     layers: layerNames,
                     weights: getWeights(),
                     colorRamp: colorRamp,
-                    mask: encodeURIComponent(geoJson),
+                    // In the actual application, we will have to pass some kind of canonical
+                    // key here, to prevent going over the URL size limit.
+                    // The django backend will lookup the GeoJson for the given key and
+                    // POST it to the scala service.
+                    mask: geoJson,
                     attribution: 'Azavea'
-                })
+                });
 
                 WOLayer.setOpacity(opacity);
                 map.getRawMap().addLayer(WOLayer, "Weighted Overlay");

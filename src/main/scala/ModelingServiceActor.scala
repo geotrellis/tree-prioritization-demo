@@ -6,6 +6,8 @@ import geotrellis.raster.stats._
 import geotrellis.services._
 import geotrellis.vector._
 import geotrellis.vector.json._
+import geotrellis.vector.reproject._
+import geotrellis.proj4._
 import geotrellis.engine._
 import geotrellis.engine.op.local._
 import geotrellis.engine.op.zonal.summary._
@@ -38,7 +40,10 @@ trait ModelingService extends HttpService {
   def getPolygons(mask: String): Seq[Polygon] = {
     import spray.json.DefaultJsonProtocol._
 
-    mask.parseGeoJson[JsonFeatureCollection].getAllPolygons[Int].map { f => f.geom }
+    mask
+      .parseGeoJson[JsonFeatureCollection]
+      .getAllPolygons
+      .map(_.reproject(LatLng, WebMercator))
   }
 
   lazy val serviceRoute =
@@ -154,6 +159,7 @@ trait ModelingService extends HttpService {
         val summary: ValueSource[Histogram] =
           if(mask != "") {
             val maskPolygons = getPolygons(mask)
+            println(maskPolygons.toSeq)
             val histograms = 
               DataSource.fromSources(
                 maskPolygons.map { p =>
