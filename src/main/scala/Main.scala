@@ -1,6 +1,6 @@
 package org.opentreemap.modeling
 
-import geotrellis.server
+import geotrellis.engine._
 
 import akka.io.IO
 import akka.actor.Props
@@ -8,7 +8,7 @@ import spray.can.Http
 
 object Main {
   def main(args: Array[String]) {
-    implicit val system = server.system
+    implicit val system = GeoTrellis.engine.system
 
     // create and start our the service actor
     val service =
