@@ -1,8 +1,8 @@
 package org.opentreemap.modeling
 
-import geotrellis.RasterExtent
-import geotrellis.TypeByte
-import geotrellis.source.RasterSource
+import geotrellis.raster._
+import geotrellis.engine._
+import geotrellis.engine.op.local._
 
 object Model {
   def weightedOverlay(layers: Iterable[String],

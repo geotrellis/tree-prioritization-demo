@@ -1,14 +1,16 @@
 package org.opentreemap.modeling
 
-import geotrellis.process
-import geotrellis.Extent
-import geotrellis.RasterExtent
-import geotrellis.Png
-import geotrellis.source.ValueSource
-import geotrellis.source.RasterSource
-import geotrellis.render.ColorRamps
-import geotrellis.services.ColorRampMap
-import geotrellis.feature.Polygon
+import geotrellis.raster._
+import geotrellis.raster.render._
+import geotrellis.raster.stats._
+import geotrellis.services._
+import geotrellis.vector._
+import geotrellis.vector.json._
+import geotrellis.engine._
+import geotrellis.engine.op.local._
+import geotrellis.engine.op.zonal.summary._
+import geotrellis.engine.render._
+import geotrellis.engine.stats._
 
 import java.io.File
 import org.parboiled.common.FileUtils
@@ -33,28 +35,34 @@ class ModelingServiceActor() extends Actor with ModelingService {
 trait ModelingService extends HttpService {
   implicit def executionContext = actorRefFactory.dispatcher
 
-  def applyMask(model: RasterSource, mask: GeoJson): RasterSource = {
-    mask.toGeometry match {
-      case Some(p: jts.Polygon) => model.mask(p)
-      case Some(p: jts.MultiPolygon) => model.mask(p)
-      case _ => model
-    }
+  def getPolygons(mask: String): Seq[Polygon] = {
+    import spray.json.DefaultJsonProtocol._
+
+    mask.parseGeoJson[JsonFeatureCollection].getAllPolygons[Int].map { f => f.geom }
   }
 
-  val indexRoute = pathSingleSlash {
+  lazy val serviceRoute =
+    indexRoute ~
+    colorsRoute ~
+    breaksRoute ~
+    overlayRoute ~
+    histogramRoute ~
+    staticRoute
+
+  lazy val indexRoute = pathSingleSlash {
     getFromFile(ServiceConfig.staticPath + "/index.html")
   }
 
-  val colorsRoute = path("gt" / "colors") {
+  lazy val colorsRoute = path("gt" / "colors") {
     complete(ColorRampMap.getJson)
   }
 
-  val breaksRoute = path("gt" / "breaks") {
+  lazy val breaksRoute = path("gt" / "breaks") {
     parameters('layers,
                'weights,
                'numBreaks.as[Int],
                'mask ? "") {
-      (layersParam, weightsParam, numBreaks, maskParam) => {
+      (layersParam, weightsParam, numBreaks, mask) => {
         // TODO: Read extent from query string (bbox).
         val extent = Extent(-19840702.0356, 2143556.8396, -7452702.0356, 11537556.8396)
         // TODO: Dynamic breaks based on configurable breaks resolution.
@@ -63,25 +71,30 @@ trait ModelingService extends HttpService {
         val layers = layersParam.split(",")
         val weights = weightsParam.split(",").map(_.toInt)
 
-        val model = Model.weightedOverlay(layers, weights, re)
-        val mask = new GeoJson(maskParam)
-        val overlay = applyMask(model, mask)
+        val model = {
+          val unmasked = Model.weightedOverlay(layers, weights, re)
 
-        overlay
+          if(mask != "")
+            unmasked.mask(getPolygons(mask))
+          else 
+            unmasked
+        }
+
+        model
           .classBreaks(numBreaks)
           .run match {
-            case process.Complete(breaks, _) =>
+            case Complete(breaks, _) =>
               val breaksArray = breaks.mkString("[", ",", "]")
               val json = s"""{ "classBreaks" : $breaksArray }"""
               complete(json)
-            case process.Error(message, trace) =>
+            case Error(message, trace) =>
               failWith(new RuntimeException(message))
           }
       }
     }
   }
 
-  val overlayRoute = path("gt" / "wo") {
+  lazy val overlayRoute = path("gt" / "wo") {
     parameters('service,
                'request,
                'version,
@@ -96,7 +109,7 @@ trait ModelingService extends HttpService {
                'colorRamp ? "blue-to-red",
                'mask ? "") {
         (_, _, _, _, bbox, cols, rows, layersString, weightsString,
-          palette, breaksString, colorRamp, maskParam) => {
+          palette, breaksString, colorRamp, mask) => {
           val extent = Extent.fromString(bbox)
           val re = RasterExtent(extent, cols, rows)
 
@@ -104,45 +117,56 @@ trait ModelingService extends HttpService {
           val weights = weightsString.split(",").map(_.toInt)
           val breaks = breaksString.split(",").map(_.toInt)
 
-          val model = Model.weightedOverlay(layers, weights, re)
-          val mask = new GeoJson(maskParam)
-          val overlay = applyMask(model, mask)
+          val model = {
+            val unmasked = Model.weightedOverlay(layers, weights, re)
+
+            if(mask != "")
+              unmasked.mask(getPolygons(mask))
+            else
+              unmasked
+          }
 
           val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
           val ramp =
             if (cr.toArray.length < breaks.length) cr.interpolate(breaks.length)
             else cr
 
-          val png: ValueSource[Png] = overlay.renderPng(ramp, breaks)
+          val png: ValueSource[Png] = model.renderPng(ramp, breaks)
 
           png.run match {
-            case process.Complete(img, h) =>
+            case Complete(img, h) =>
               respondWithMediaType(MediaTypes.`image/png`) {
-                complete(img)
+                complete(img.bytes)
               }
-            case process.Error(message, trace) =>
+            case Error(message, trace) =>
               failWith(new RuntimeException(message))
           }
       }
     }
   }
 
-  val histogramRoute = path("gt" / "histogram") {
+  lazy val histogramRoute = path("gt" / "histogram") {
     parameters('layer, 'mask ? "") {
-      (layerParam, maskParam) => {
+      (layerParam, mask) => {
         val start = System.currentTimeMillis()
 
-        val mask = new GeoJson(maskParam)
         val rs = RasterSource(layerParam)
-
-        val summary = mask.toGeometry match {
-          // Convert JTS geometry to GeoTrellis feature polygon.
-          case Some(pMask) => rs.zonalHistogram(Polygon(pMask, 0))
-          case None => rs.histogram
-        }
+        val summary: ValueSource[Histogram] =
+          if(mask != "") {
+            val maskPolygons = getPolygons(mask)
+            val histograms = 
+              DataSource.fromSources(
+                maskPolygons.map { p =>
+                  rs.zonalHistogram(p)
+                }
+              )
+            histograms.converge { seq => FastMapHistogram.fromHistograms(seq) }
+          } else {
+            rs.histogram
+          }
 
         summary.run match {
-          case process.Complete(result, h) =>
+          case Complete(result, h) =>
             val elapsedTotal = System.currentTimeMillis - start
             val histogram = result.toJSON
             val data =
@@ -151,23 +175,15 @@ trait ModelingService extends HttpService {
                 "histogram": $histogram
                   }"""
             complete(data)
-          case process.Error(message, trace) =>
+          case Error(message, trace) =>
             failWith(new RuntimeException(message))
         }
       }
     }
   }
 
-  val staticRoute = pathPrefix("") {
+  lazy val staticRoute = pathPrefix("") {
     getFromDirectory(ServiceConfig.staticPath)
   }
-
-  val serviceRoute =
-    indexRoute ~
-    colorsRoute ~
-    breaksRoute ~
-    overlayRoute ~
-    histogramRoute ~
-    staticRoute
 }
 
