@@ -25,9 +25,6 @@ import com.vividsolutions.jts.{ geom => jts }
 
 
 object ModelingTypes {
-  // Array of GeoJSON strings.
-  type PolyMaskType = Array[String]
-
   // Map of layer names to selected values.
   // Ex. { Layer1: [1, 2, 3], ... }
   type LayerMaskType = Map[String, Array[Int]]
@@ -60,18 +57,13 @@ trait ModelingServiceLogic {
     }
   }
 
-  /** Convert array of strings to a Polygon sequence. */
-  def parsePolyMaskParam(polyMask: Option[PolyMaskType]): Iterable[Polygon] = {
-    polyMask match {
-      case Some(masks: PolyMaskType) =>
-        // Store result in a variable before returning to prevent some kind
-        // of reflection error during compilation.
-        val result = masks.map(getPolygons(_)).filter(_.length > 0).flatten
-        result
-      case None =>
-        Seq[Polygon]()
-    }
-  }
+  /** Convert GeoJson string to Polygon sequence.
+    * The `polyMask` parameter expects a single GeoJson blob,
+    * so this should never return a sequence with more than 1 element.
+    * However, we still return a sequence, in case we want this param
+    * to support multiple polygons in the future.
+    */
+  def parsePolyMaskParam(polyMask: String): Iterable[Polygon] = getPolygons(polyMask)
 
   /** Convert layer mask map to a RasterSource sequence.  */
   def parseLayerMaskParam(layerMask: Option[LayerMaskType],
@@ -90,7 +82,7 @@ trait ModelingServiceLogic {
   }
 
   def getMaskedModel(model: RasterSource,
-                     polyMask: Option[PolyMaskType],
+                     polyMask: String,
                      layerMask: Option[LayerMaskType],
                      extent: RasterExtent): RasterSource = {
     getMaskedModel(model, parsePolyMaskParam(polyMask), parseLayerMaskParam(layerMask, extent))
@@ -147,7 +139,7 @@ trait ModelingServiceLogic {
                  breaks: Seq[Int],
                  rasterExtent: RasterExtent,
                  colorRamp: String,
-                 polyMask: Option[PolyMaskType],
+                 polyMask: String,
                  layerMask: Option[LayerMaskType]) = {
     val unmasked = weightedOverlay(layers, weights, rasterExtent)
     val model = getMaskedModel(unmasked, polyMask, layerMask, rasterExtent)
@@ -194,7 +186,7 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
                  'numBreaks.as[Int],
                  'polyMask ? "",
                  'layerMask ? "") {
-        (layersParam, weightsParam, numBreaks, polyMaskParam, layerMaskParam) => {
+        (layersParam, weightsParam, numBreaks, polyMask, layerMaskParam) => {
           // TODO: Read extent from query string (bbox).
           val extent = Extent(-19840702.0356, 2143556.8396, -7452702.0356, 11537556.8396)
           // TODO: Dynamic breaks based on configurable breaks resolution.
@@ -202,15 +194,6 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
 
           val layers = layersParam.split(",")
           val weights = weightsParam.split(",").map(_.toInt)
-
-          val polyMask = try {
-            import spray.json.DefaultJsonProtocol._
-            polyMaskParam.parseJson.convertTo[PolyMaskType]
-          } catch {
-            case ex: ParsingException =>
-              ex.printStackTrace(Console.err)
-              Array[String]()
-          }
 
           val layerMask = try {
             import spray.json.DefaultJsonProtocol._
@@ -222,7 +205,7 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
           }
 
           val unmasked = weightedOverlay(layers, weights, rasterExtent)
-          val model = getMaskedModel(unmasked, Some(polyMask), Some(layerMask), rasterExtent)
+          val model = getMaskedModel(unmasked, polyMask, Some(layerMask), rasterExtent)
 
           val breaksResult = getBreaks(model, numBreaks)
           breaksResult match {
@@ -255,22 +238,13 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
                  'polyMask ? "",
                  'layerMask ? "") {
         (_, _, _, _, bbox, cols, rows, layersString, weightsString,
-            palette, breaksString, colorRamp, polyMaskParam, layerMaskParam) => {
+            palette, breaksString, colorRamp, polyMask, layerMaskParam) => {
           val extent = Extent.fromString(bbox)
           val rasterExtent = RasterExtent(extent, cols, rows)
 
           val layers = layersString.split(",")
           val weights = weightsString.split(",").map(_.toInt)
           val breaks = breaksString.split(",").map(_.toInt)
-
-          val polyMask = try {
-            import spray.json.DefaultJsonProtocol._
-            Some(polyMaskParam.parseJson.convertTo[PolyMaskType])
-          } catch {
-            case ex: ParsingException =>
-              ex.printStackTrace(Console.err)
-              None
-          }
 
           val layerMask = try {
             import spray.json.DefaultJsonProtocol._
