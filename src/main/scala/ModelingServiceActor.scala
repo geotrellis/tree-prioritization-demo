@@ -19,7 +19,7 @@ import spray.routing.HttpService
 import spray.http.MediaTypes
 
 import spray.json._
-import DefaultJsonProtocol._
+import org.parboiled.errors.ParsingException
 
 import com.vividsolutions.jts.{ geom => jts }
 
@@ -54,7 +54,7 @@ trait ModelingServiceLogic {
         .getAllPolygons
         .map(_.reproject(LatLng, WebMercator))
     } catch {
-      case ex: org.parboiled.errors.ParsingException =>
+      case ex: ParsingException =>
         // TODO: Write stack trace to log file.
         //ex.printStackTrace(Console.err)
         Seq[Polygon]()
@@ -155,10 +155,7 @@ trait ModelingServiceLogic {
 
     val ramp = {
       val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
-      if (cr.toArray.length < breaks.length)
-        cr.interpolate(breaks.length)
-      else
-        cr
+      cr.interpolate(breaks.length)
     }
 
     val png: ValueSource[Png] = model.renderPng(ramp.toArray, breaks.toArray)
@@ -196,9 +193,9 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
       formFields('layers,
                  'weights,
                  'numBreaks.as[Int],
-                 'polyMask.as[PolyMaskType].?,
-                 'layerMask.as[LayerMaskType].?) {
-        (layersParam, weightsParam, numBreaks, polyMask, layerMask) => {
+                 'polyMask ? "",
+                 'layerMask ? "") {
+        (layersParam, weightsParam, numBreaks, polyMaskParam, layerMaskParam) => {
           // TODO: Read extent from query string (bbox).
           val extent = Extent(-19840702.0356, 2143556.8396, -7452702.0356, 11537556.8396)
           // TODO: Dynamic breaks based on configurable breaks resolution.
@@ -207,8 +204,22 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
           val layers = layersParam.split(",")
           val weights = weightsParam.split(",").map(_.toInt)
 
+          val polyMask = try {
+            import spray.json.DefaultJsonProtocol._
+            polyMaskParam.parseJson.convertTo[PolyMaskType]
+          } catch {
+            case ex: ParsingException => Array[String]()
+          }
+
+          val layerMask = try {
+            import spray.json.DefaultJsonProtocol._
+            layerMaskParam.parseJson.convertTo[LayerMaskType]
+          } catch {
+            case ex: ParsingException => Map[String, Array[Int]]()
+          }
+
           val unmasked = weightedOverlay(layers, weights, rasterExtent)
-          val model = getMaskedModel(unmasked, polyMask, layerMask, rasterExtent)
+          val model = getMaskedModel(unmasked, Some(polyMask), Some(layerMask), rasterExtent)
 
           val breaksResult = getBreaks(model, numBreaks)
           breaksResult match {
@@ -238,28 +249,42 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
                  'palette ? "ff0000,ffff00,00ff00,0000ff",
                  'breaks,
                  'colorRamp ? "blue-to-red",
-                 'polyMask.as[PolyMaskType].?,
-                 'layerMask.as[LayerMaskType].?) {
-          (_, _, _, _, bbox, cols, rows, layersString, weightsString,
-            palette, breaksString, colorRamp, polyMask, layerMask) => {
-            val extent = Extent.fromString(bbox)
-            val rasterExtent = RasterExtent(extent, cols, rows)
+                 'polyMask ? "",
+                 'layerMask ? "") {
+        (_, _, _, _, bbox, cols, rows, layersString, weightsString,
+            palette, breaksString, colorRamp, polyMaskParam, layerMaskParam) => {
+          val extent = Extent.fromString(bbox)
+          val rasterExtent = RasterExtent(extent, cols, rows)
 
-            val layers = layersString.split(",")
-            val weights = weightsString.split(",").map(_.toInt)
-            val breaks = breaksString.split(",").map(_.toInt)
+          val layers = layersString.split(",")
+          val weights = weightsString.split(",").map(_.toInt)
+          val breaks = breaksString.split(",").map(_.toInt)
 
-            val tileResult = renderTile(layers, weights, breaks, rasterExtent, colorRamp,
-              polyMask, layerMask)
+          val polyMask = try {
+            import spray.json.DefaultJsonProtocol._
+            Some(polyMaskParam.parseJson.convertTo[PolyMaskType])
+          } catch {
+            case ex: ParsingException => None
+          }
 
-            tileResult match {
-              case Complete(img, h) =>
-                respondWithMediaType(MediaTypes.`image/png`) {
-                  complete(img.bytes)
-                }
-              case Error(message, trace) =>
-                failWith(new RuntimeException(message))
-            }
+          val layerMask = try {
+            import spray.json.DefaultJsonProtocol._
+            Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
+          } catch {
+            case ex: ParsingException => None
+          }
+
+          val tileResult = renderTile(layers, weights, breaks, rasterExtent, colorRamp,
+            polyMask, layerMask)
+
+          tileResult match {
+            case Complete(img, h) =>
+              respondWithMediaType(MediaTypes.`image/png`) {
+                complete(img.bytes)
+              }
+            case Error(message, trace) =>
+              failWith(new RuntimeException(message))
+          }
         }
       }
     }

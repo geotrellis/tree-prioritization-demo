@@ -176,6 +176,7 @@ weightedOverlay = (function() {
         }
 
         var geoJson = JSON.stringify(map.getMaskGeoJSON());
+        var polyMask = JSON.stringify([geoJson]);
 
         $.ajax({
             url: 'gt/breaks',
@@ -184,7 +185,7 @@ weightedOverlay = (function() {
                 layers: getLayers(),
                 weights: getWeights(),
                 numBreaks: numBreaks,
-                polyMask: geoJson
+                polyMask: polyMask
             },
             dataType: "json",
             success: function(r) {
@@ -198,7 +199,7 @@ weightedOverlay = (function() {
                     layers: layerNames,
                     weights: getWeights(),
                     colorRamp: colorRamp,
-                    polyMask: geoJson,
+                    polyMask: polyMask,
                     attribution: 'Azavea'
                 });
 
