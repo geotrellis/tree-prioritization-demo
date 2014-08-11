@@ -6,11 +6,14 @@ scalaVersion := "2.10.0"
 
 resolvers += Resolver.sonatypeRepo("snapshots")
 
+resolvers += "spray" at "http://repo.spray.io/"
+
 resolvers += "Geotools" at "http://download.osgeo.org/webdav/geotools/"
 
 libraryDependencies ++= Seq(
   "com.azavea.geotrellis" %% "geotrellis-services" % "0.10.0-SNAPSHOT",
   "io.spray" % "spray-routing" % "1.2.1",
+  "io.spray" %% "spray-json" % "1.2.6",
   "io.spray" % "spray-can" % "1.2.1",
   "org.geotools" % "gt-main" % "8.0-M4",
   "org.geotools" % "gt-coveragetools" % "8.0-M4"
