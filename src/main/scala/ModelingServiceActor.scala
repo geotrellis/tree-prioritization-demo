@@ -55,8 +55,7 @@ trait ModelingServiceLogic {
         .map(_.reproject(LatLng, WebMercator))
     } catch {
       case ex: ParsingException =>
-        // TODO: Write stack trace to log file.
-        //ex.printStackTrace(Console.err)
+        ex.printStackTrace(Console.err)
         Seq[Polygon]()
     }
   }
@@ -208,14 +207,18 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
             import spray.json.DefaultJsonProtocol._
             polyMaskParam.parseJson.convertTo[PolyMaskType]
           } catch {
-            case ex: ParsingException => Array[String]()
+            case ex: ParsingException =>
+              ex.printStackTrace(Console.err)
+              Array[String]()
           }
 
           val layerMask = try {
             import spray.json.DefaultJsonProtocol._
             layerMaskParam.parseJson.convertTo[LayerMaskType]
           } catch {
-            case ex: ParsingException => Map[String, Array[Int]]()
+            case ex: ParsingException =>
+              ex.printStackTrace(Console.err)
+              Map[String, Array[Int]]()
           }
 
           val unmasked = weightedOverlay(layers, weights, rasterExtent)
@@ -264,14 +267,18 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
             import spray.json.DefaultJsonProtocol._
             Some(polyMaskParam.parseJson.convertTo[PolyMaskType])
           } catch {
-            case ex: ParsingException => None
+            case ex: ParsingException =>
+              ex.printStackTrace(Console.err)
+              None
           }
 
           val layerMask = try {
             import spray.json.DefaultJsonProtocol._
             Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
           } catch {
-            case ex: ParsingException => None
+            case ex: ParsingException =>
+              ex.printStackTrace(Console.err)
+              None
           }
 
           val tileResult = renderTile(layers, weights, breaks, rasterExtent, colorRamp,
