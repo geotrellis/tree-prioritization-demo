@@ -176,14 +176,16 @@ weightedOverlay = (function() {
         }
 
         var geoJson = JSON.stringify(map.getMaskGeoJSON());
+        var polyMask = JSON.stringify([geoJson]);
 
         $.ajax({
             url: 'gt/breaks',
+            type: 'POST',
             data: {
                 layers: getLayers(),
                 weights: getWeights(),
                 numBreaks: numBreaks,
-                mask: geoJson
+                polyMask: polyMask
             },
             dataType: "json",
             success: function(r) {
@@ -197,11 +199,7 @@ weightedOverlay = (function() {
                     layers: layerNames,
                     weights: getWeights(),
                     colorRamp: colorRamp,
-                    // In the actual application, we will have to pass some kind of canonical
-                    // key here, to prevent going over the URL size limit.
-                    // The django backend will lookup the GeoJson for the given key and
-                    // POST it to the scala service.
-                    mask: geoJson,
+                    polyMask: polyMask,
                     attribution: 'Azavea'
                 });
 
@@ -212,9 +210,10 @@ weightedOverlay = (function() {
 
         $.ajax({
             url: 'gt/histogram',
+            type: 'POST',
             data: {
                 layer: layers[0].name,
-                mask: geoJson
+                polyMask: geoJson
             },
             dataType: "json",
             success: function(r) {
