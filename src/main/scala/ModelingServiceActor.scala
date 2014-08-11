@@ -56,49 +56,6 @@ trait ModelingService extends HttpService {
         else { NODATA }
       }
     }
-
-  def example = {
-    val model = RasterSource("foo")
-
-    val landCoverValues = Seq(1,2,4)
-
-    val landMask = 
-      filterValues(RasterSource("lc")) { z => 
-        landCoverValues.contains(z) 
-      }
-
-    val zipCodes = Seq(123,324,345)
-
-    val zipMask = 
-      filterValues(RasterSource("zips")) { z =>
-        zipCodes.contains(z)
-      }
-
-    val masked = 
-      maskByRasters(model, Seq(landMask, zipMask))
-  }
-
-  def multipleFeatureCollectionMask = {
-    val geo1: String = ???
-    val geo2: String = ???
-
-    val polys: Seq[Polygon] =
-      Seq(geo1, geo2).map(getPolygons(_)).flatten
-
-    val model: RasterSource = ???
-    model.mask(polys)
-  }
-
-  def top10Percent = {
-    val model: RasterSource = ???
-
-    val threshold = 
-      model
-        .classBreaks(10)
-        .map { arr => arr(arr.size - 2) }
-        .get
-
-    filterValues(model) { z => z > threshold }
   }
 
   lazy val serviceRoute =
