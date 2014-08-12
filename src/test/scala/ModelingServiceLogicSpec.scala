@@ -229,7 +229,7 @@ class ModelingServiceLogicSpec
     //                 AND cells marked "2" OR "4" in Raster5)
     val layerMask = Map("Raster3" -> Array(1),
                         "Raster5" -> Array(2, 4))
-    val result = logic.getMaskedModel(rs, None, Some(layerMask), rasterExtent)
+    val result = logic.getMaskedModel(rs, "", Some(layerMask), rasterExtent)
     assert(tilesAreEqual(result.get,
       createTile(
         Array(n, n, n, n, n,
