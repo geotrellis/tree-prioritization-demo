@@ -63,7 +63,7 @@ trait ModelingServiceLogic {
     * However, we still return a sequence, in case we want this param
     * to support multiple polygons in the future.
     */
-  def parsePolyMaskParam(polyMask: String): Iterable[Polygon] = getPolygons(polyMask)
+  def parsePolyMaskParam(polyMask: String): Seq[Polygon] = getPolygons(polyMask)
 
   /** Convert layer mask map to a RasterSource sequence.  */
   def parseLayerMaskParam(layerMask: Option[LayerMaskType],
@@ -153,6 +153,21 @@ trait ModelingServiceLogic {
 
     val png: ValueSource[Png] = model.renderPng(ramp.toArray, breaks.toArray)
     png.run
+  }
+
+  def histogram(model: RasterSource, polyMask: Seq[Polygon]) = {
+    val summary: ValueSource[Histogram] = {
+      if (polyMask.size > 0) {
+        val histograms =
+          DataSource.fromSources(
+            polyMask map { p => model.zonalHistogram(p) }
+          )
+        histograms.converge { seq => FastMapHistogram.fromHistograms(seq) }
+      } else {
+        model.histogram
+      }
+    }
+    summary.run
   }
 }
 
@@ -276,30 +291,16 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
   lazy val histogramRoute = path("gt" / "histogram") {
     post {
       formFields('layer, 'polyMask ? "") {
-        (layerParam, polyMask) => {
+        (layer, polyMaskParam) => {
           val start = System.currentTimeMillis()
-
           // TODO: Read extent from query string (bbox).
           val extent = Extent(-19840702.0356, 2143556.8396, -7452702.0356, 11537556.8396)
           // TODO: Dynamic breaks based on configurable breaks resolution.
           val rasterExtent = RasterExtent(extent, 256, 256)
-
-          val rs = createRasterSource(layerParam, rasterExtent)
-
-          val summary: ValueSource[Histogram] = {
-            val maskPolygons = getPolygons(polyMask)
-            if (maskPolygons.length > 0) {
-              val histograms =
-                DataSource.fromSources(
-                  maskPolygons.map { p => rs.zonalHistogram(p) }
-                )
-              histograms.converge { seq => FastMapHistogram.fromHistograms(seq) }
-            } else {
-              rs.histogram
-            }
-          }
-
-          summary.run match {
+          val rs = createRasterSource(layer, rasterExtent)
+          val polyMask = parsePolyMaskParam(polyMaskParam)
+          val summary = histogram(rs, polyMask)
+          summary match {
             case Complete(result, h) =>
               val elapsedTotal = System.currentTimeMillis - start
               val histogram = result.toJSON
