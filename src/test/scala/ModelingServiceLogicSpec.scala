@@ -178,7 +178,7 @@ class ModelingServiceLogicSpec
   test("Layer mask from string") {
     val rs = logic.createRasterSource("Raster2", rasterExtent)
     val layerMask = Map("Raster1" -> Array(1))
-    val result = logic.getMaskedModel(rs, None, Some(layerMask), rasterExtent)
+    val result = logic.getMaskedModel(rs, "", Some(layerMask), rasterExtent)
     assert(tilesAreEqual(result.get,
       createTile(
         Array(0, n, 0, n, 0,
