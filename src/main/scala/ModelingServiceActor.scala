@@ -93,7 +93,9 @@ trait ModelingServiceLogic {
                      polyMask: Option[PolyMaskType],
                      layerMask: Option[LayerMaskType],
                      extent: RasterExtent): RasterSource = {
-    getMaskedModel(model, parsePolyMaskParam(polyMask), parseLayerMaskParam(layerMask, extent))
+    getMaskedModel(model,
+      parsePolyMaskParam(polyMask),
+      parseLayerMaskParam(layerMask, extent))
   }
 
   def getMaskedModel(model: RasterSource,

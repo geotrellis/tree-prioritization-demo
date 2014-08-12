@@ -52,7 +52,19 @@ class ModelingServiceLogicSpec
             0, 1, 1, 1, 0,
             0, 1, 0, 1, 0,
             0, 1, 1, 1, 0,
-            0, 0, 0, 0, 0))
+            0, 0, 0, 0, 0)),
+    "Raster4" -> createTile(
+      Array(1, 2, 3, 4, 5,
+            1, 2, 3, 4, 5,
+            1, 2, 3, 4, 5,
+            1, 2, 3, 4, 5,
+            1, 2, 3, 4, 5)),
+    "Raster5" -> createTile(
+      Array(1, 1, 1, 1, 1,
+            2, 2, 2, 2, 2,
+            3, 3, 3, 3, 3,
+            4, 4, 4, 4, 4,
+            5, 5, 5, 5, 5))
   )
 
   val logic = new MockModelingServiceLogic(testRasters)
@@ -208,6 +220,22 @@ class ModelingServiceLogicSpec
               n, n, 1, n, 1,
               n, n, 0, n, 0,
               n, n, n, n, n,
+              n, n, n, n, n))), "\n" + result.get.asciiDraw)
+  }
+
+  test("Layer mask with multiple values") {
+    val rs = logic.createRasterSource("Raster4", rasterExtent)
+    // Should mask by (cells marked "1" in Raster3
+    //                 AND cells marked "2" OR "4" in Raster5)
+    val layerMask = Map("Raster3" -> Array(1),
+                        "Raster5" -> Array(2, 4))
+    val result = logic.getMaskedModel(rs, None, Some(layerMask), rasterExtent)
+    assert(tilesAreEqual(result.get,
+      createTile(
+        Array(n, n, n, n, n,
+              n, 2, 3, 4, n,
+              n, n, n, n, n,
+              n, 2, 3, 4, n,
               n, n, n, n, n))), "\n" + result.get.asciiDraw)
   }
 }
