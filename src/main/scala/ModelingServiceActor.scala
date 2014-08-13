@@ -52,7 +52,8 @@ trait ModelingServiceLogic {
         .map(_.reproject(LatLng, WebMercator))
     } catch {
       case ex: ParsingException =>
-        ex.printStackTrace(Console.err)
+        if (!mask.isEmpty)
+          ex.printStackTrace(Console.err)
         Seq[Polygon]()
     }
   }
@@ -217,7 +218,8 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
             layerMaskParam.parseJson.convertTo[LayerMaskType]
           } catch {
             case ex: ParsingException =>
-              ex.printStackTrace(Console.err)
+              if (!layerMaskParam.isEmpty)
+                ex.printStackTrace(Console.err)
               Map[String, Array[Int]]()
           }
 
@@ -268,7 +270,8 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
             Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
           } catch {
             case ex: ParsingException =>
-              ex.printStackTrace(Console.err)
+              if (!layerMaskParam.isEmpty)
+                ex.printStackTrace(Console.err)
               None
           }
 
