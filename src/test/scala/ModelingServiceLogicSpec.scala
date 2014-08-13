@@ -73,28 +73,24 @@ class ModelingServiceLogicSpec
   val rasterExtent = RasterExtent(extent, 1, 1, 5, 5)
 
   test("Empty GeoJson should return 0 polygons") {
-    assert(logic.getPolygons("").size == 0)
+    assert(logic.parsePolyMaskParam("").size == 0)
   }
 
   test("Invalid GeoJson should return 0 polygons") {
-    assert(logic.getPolygons("foo bar").size == 0)
+    assert(logic.parsePolyMaskParam("foo bar").size == 0)
   }
 
   test("Empty FeatureCollection should return 0 polygons") {
-    assert(logic.getPolygons(s"""{"type":"FeatureCollection","features":[]}""").size == 0)
+    assert(logic.parsePolyMaskParam(s"""{"type":"FeatureCollection","features":[]}""").size == 0)
   }
 
   test("Raster should remain unmodified with a weight of 1") {
     val layers = List("Raster3")
     val weights = List(1)
     val result = logic.weightedOverlay(layers, weights, rasterExtent)
-    assert(tilesAreEqual(result.get,
-      createTile(
-        Array(0, 0, 0, 0, 0,
-              0, 1, 1, 1, 0,
-              0, 1, 0, 1, 0,
-              0, 1, 1, 1, 0,
-              0, 0, 0, 0, 0))), "\n" + result.get.asciiDraw)
+    withClue(result.get.asciiDraw) {
+      assert(tilesAreEqual(result.get, testRasters("Raster3")))
+    }
   }
 
   test("Weighted overlay should multiply and add raster values together") {
@@ -102,13 +98,15 @@ class ModelingServiceLogicSpec
     val weights = List(1, 2)
     val result = logic.weightedOverlay(layers, weights, rasterExtent)
     // Should be Raster1 * 1 + Raster2 * 2.
-    assert(tilesAreEqual(result.get,
-      createTile(
-        Array(1, 0, 1, 0, 1,
-              3, 2, 3, 2, 3,
-              1, 0, 1, 0, 1,
-              3, 2, 3, 2, 3,
-              1, 0, 1, 0, 1))), "\n" + result.get.asciiDraw)
+    withClue(result.get.asciiDraw) {
+      assert(tilesAreEqual(result.get,
+        createTile(
+          Array(1, 0, 1, 0, 1,
+                3, 2, 3, 2, 3,
+                1, 0, 1, 0, 1,
+                3, 2, 3, 2, 3,
+                1, 0, 1, 0, 1))))
+    }
   }
 
   test("Breaks should be non-zero with at least 1 weighted overlay") {
@@ -130,25 +128,28 @@ class ModelingServiceLogicSpec
   }
 
   test("Single polygon mask") {
-    val rs = logic.createRasterSource("Raster3", rasterExtent)
     val poly: Polygon = Rectangle()
       .withWidth(3)
       .withHeight(3)
       .withLowerLeftAt(1, 1)
       .build
-    val polyMask = poly :: Nil
-    val result = logic.getMaskedModel(rs, polyMask, None)
-    assert(tilesAreEqual(result.get,
-      createTile(
-        Array(n, n, n, n, n,
-              n, 1, 1, 1, n,
-              n, 1, 0, 1, n,
-              n, 1, 1, 1, n,
-              n, n, n, n, n))), "\n" + result.get.asciiDraw)
+    val polyMask = logic.polyMask(poly :: Nil) _
+
+    val rs = logic.createRasterSource("Raster3", rasterExtent)
+    val result = logic.applyMasks(rs, polyMask)
+
+    withClue(result.get.asciiDraw) {
+      assert(tilesAreEqual(result.get,
+        createTile(
+          Array(n, n, n, n, n,
+                n, 1, 1, 1, n,
+                n, 1, 0, 1, n,
+                n, 1, 1, 1, n,
+                n, n, n, n, n))))
+    }
   }
 
   test("Multi polygon mask") {
-    val rs = logic.createRasterSource("Raster1", rasterExtent)
     val poly1: Polygon = Rectangle()
       .withWidth(3)
       .withHeight(3)
@@ -159,84 +160,106 @@ class ModelingServiceLogicSpec
       .withHeight(3)
       .withLowerLeftAt(2, 2)
       .build
-    val polyMask = poly1 :: poly2 :: Nil
-    val result = logic.getMaskedModel(rs, polyMask, None)
-    assert(tilesAreEqual(result.get,
-      createTile(
-        Array(n, n, 1, 0, 1,
-              n, n, 1, 0, 1,
-              1, 0, 1, 0, 1,
-              1, 0, 1, n, n,
-              1, 0, 1, n, n))), "\n" + result.get.asciiDraw)
+    val polyMask = logic.polyMask(poly1 :: poly2 :: Nil) _
+
+    val rs = logic.createRasterSource("Raster1", rasterExtent)
+    val result = logic.applyMasks(rs, polyMask)
+
+    withClue(result.get.asciiDraw) {
+      assert(tilesAreEqual(result.get,
+        createTile(
+          Array(n, n, 1, 0, 1,
+                n, n, 1, 0, 1,
+                1, 0, 1, 0, 1,
+                1, 0, 1, n, n,
+                1, 0, 1, n, n))))
+    }
   }
 
   test("Layer mask") {
-    // Mask by layer "Raster2" with values "1".
-    val maskRs = logic.createRasterSource("Raster1", rasterExtent)
-      .localMap { z => if (z == 1) 1 else NODATA }
+    val parsedLayerMask = Map("Raster1" -> Array(1))
+    val layerMaskArgs = logic.parseLayerMaskParam(Some(parsedLayerMask), rasterExtent)
+    val layerMask = logic.layerMask(layerMaskArgs) _
 
     val rs = logic.createRasterSource("Raster2", rasterExtent)
-    val layerMask = maskRs :: Nil
-    val result = logic.getMaskedModel(rs, None, layerMask)
-    assert(tilesAreEqual(result.get,
-      createTile(
-        Array(0, n, 0, n, 0,
-              1, n, 1, n, 1,
-              0, n, 0, n, 0,
-              1, n, 1, n, 1,
-              0, n, 0, n, 0))), "\n" + result.get.asciiDraw)
+    val result = logic.applyMasks(rs, layerMask)
+
+    withClue(result.get.asciiDraw) {
+      assert(tilesAreEqual(result.get,
+        createTile(
+          Array(0, n, 0, n, 0,
+                1, n, 1, n, 1,
+                0, n, 0, n, 0,
+                1, n, 1, n, 1,
+                0, n, 0, n, 0))))
+    }
   }
 
   test("Layer mask from string") {
+    val parsedLayerMask = Map("Raster1" -> Array(1))
+    val layerMaskArgs = logic.parseLayerMaskParam(Some(parsedLayerMask), rasterExtent)
+    val layerMask = logic.layerMask(layerMaskArgs) _
+
     val rs = logic.createRasterSource("Raster2", rasterExtent)
-    val layerMask = Map("Raster1" -> Array(1))
-    val result = logic.getMaskedModel(rs, "", Some(layerMask), rasterExtent)
-    assert(tilesAreEqual(result.get,
-      createTile(
-        Array(0, n, 0, n, 0,
-              1, n, 1, n, 1,
-              0, n, 0, n, 0,
-              1, n, 1, n, 1,
-              0, n, 0, n, 0))), "\n" + result.get.asciiDraw)
+    val result = logic.applyMasks(rs, layerMask)
+
+    withClue(result.get.asciiDraw) {
+      assert(tilesAreEqual(result.get,
+        createTile(
+          Array(0, n, 0, n, 0,
+                1, n, 1, n, 1,
+                0, n, 0, n, 0,
+                1, n, 1, n, 1,
+                0, n, 0, n, 0))))
+    }
   }
 
   test("Combine polygon and layer mask") {
-    val maskRs = logic.createRasterSource("Raster1", rasterExtent)
-      .localMap { z => if (z == 1) 1 else NODATA }
-    val layerMask = maskRs :: Nil
+    val parsedLayerMask = Some(Map("Raster1" -> Array(1)))
+    val layerMaskArgs = logic.parseLayerMaskParam(parsedLayerMask, rasterExtent)
+    val layerMask = logic.layerMask(layerMaskArgs) _
 
     val poly: Polygon = Rectangle()
       .withWidth(3)
       .withHeight(3)
       .withLowerLeftAt(2, 2)
       .build
-    val polyMask = poly :: Nil
+    val polyMask = logic.polyMask(poly :: Nil) _
 
     val rs = logic.createRasterSource("Raster2", rasterExtent)
-    val result = logic.getMaskedModel(rs, polyMask, layerMask)
-    assert(tilesAreEqual(result.get,
-      createTile(
-        Array(n, n, 0, n, 0,
-              n, n, 1, n, 1,
-              n, n, 0, n, 0,
-              n, n, n, n, n,
-              n, n, n, n, n))), "\n" + result.get.asciiDraw)
+    val result = logic.applyMasks(rs, polyMask, layerMask)
+
+    withClue(result.get.asciiDraw) {
+      assert(tilesAreEqual(result.get,
+        createTile(
+          Array(n, n, 0, n, 0,
+                n, n, 1, n, 1,
+                n, n, 0, n, 0,
+                n, n, n, n, n,
+                n, n, n, n, n))))
+    }
   }
 
   test("Layer mask with multiple values") {
-    val rs = logic.createRasterSource("Raster4", rasterExtent)
     // Should mask by (cells marked "1" in Raster3
     //                 AND cells marked "2" OR "4" in Raster5)
-    val layerMask = Map("Raster3" -> Array(1),
-                        "Raster5" -> Array(2, 4))
-    val result = logic.getMaskedModel(rs, "", Some(layerMask), rasterExtent)
-    assert(tilesAreEqual(result.get,
-      createTile(
-        Array(n, n, n, n, n,
-              n, 2, 3, 4, n,
-              n, n, n, n, n,
-              n, 2, 3, 4, n,
-              n, n, n, n, n))), "\n" + result.get.asciiDraw)
+    val parsedLayerMask = Map("Raster3" -> Array(1),
+                              "Raster5" -> Array(2, 4))
+    val layerMaskArgs = logic.parseLayerMaskParam(Some(parsedLayerMask), rasterExtent)
+    val layerMask = logic.layerMask(layerMaskArgs) _
+
+    val rs = logic.createRasterSource("Raster4", rasterExtent)
+    val result = logic.applyMasks(rs, layerMask)
+
+    withClue(result.get.asciiDraw) {
+      assert(tilesAreEqual(result.get,
+        createTile(
+          Array(n, n, n, n, n,
+                n, 2, 3, 4, n,
+                n, n, n, n, n,
+                n, 2, 3, 4, n,
+                n, n, n, n, n))))
+    }
   }
 
   test("Histogram") {
@@ -265,6 +288,7 @@ class ModelingServiceLogicSpec
       .withLowerLeftAt(0, 0)
       .build
     val polyMask = poly :: Nil
+
     val rs = logic.createRasterSource("Raster5", rasterExtent)
     val summary =  logic.histogram(rs, polyMask)
     summary match {

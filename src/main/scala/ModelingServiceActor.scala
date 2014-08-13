@@ -43,28 +43,26 @@ trait ModelingServiceLogic {
 
   import ModelingTypes._
 
-  def getPolygons(mask: String): Seq[Polygon] = {
-    import spray.json.DefaultJsonProtocol._
-    try {
-      val featureColl = mask.parseGeoJson[JsonFeatureCollection]
-      val polys = featureColl.getAllPolygons union
-                  featureColl.getAllMultiPolygons.map(_.polygons).flatten
-      polys.map(_.reproject(LatLng, WebMercator))
-    } catch {
-      case ex: ParsingException =>
-        if (!mask.isEmpty)
-          ex.printStackTrace(Console.err)
-        Seq[Polygon]()
-    }
-  }
-
   /** Convert GeoJson string to Polygon sequence.
     * The `polyMask` parameter expects a single GeoJson blob,
     * so this should never return a sequence with more than 1 element.
     * However, we still return a sequence, in case we want this param
     * to support multiple polygons in the future.
     */
-  def parsePolyMaskParam(polyMask: String): Seq[Polygon] = getPolygons(polyMask)
+  def parsePolyMaskParam(polyMask: String): Seq[Polygon] = {
+    import spray.json.DefaultJsonProtocol._
+    try {
+      val featureColl = polyMask.parseGeoJson[JsonFeatureCollection]
+      val polys = featureColl.getAllPolygons union
+                  featureColl.getAllMultiPolygons.map(_.polygons).flatten
+      polys.map(_.reproject(LatLng, WebMercator))
+    } catch {
+      case ex: ParsingException =>
+        if (!polyMask.isEmpty)
+          ex.printStackTrace(Console.err)
+        Seq[Polygon]()
+    }
+  }
 
   /** Convert layer mask map to a RasterSource sequence.  */
   def parseLayerMaskParam(layerMask: Option[LayerMaskType],
@@ -82,41 +80,32 @@ trait ModelingServiceLogic {
     }
   }
 
-  def getMaskedModel(model: RasterSource,
-                     polyMask: String,
-                     layerMask: Option[LayerMaskType],
-                     extent: RasterExtent): RasterSource = {
-    getMaskedModel(model,
-      parsePolyMaskParam(polyMask),
-      parseLayerMaskParam(layerMask, extent))
   }
 
-  def getMaskedModel(model: RasterSource,
-                     polyMasks: Iterable[Polygon],
-                     layerMasks: Iterable[RasterSource]): RasterSource = {
-    // Polygon masks.
-    val polyMasked =
-      if (polyMasks.size > 0)
-        model.mask(polyMasks)
-      else
-        model
+  def polyMask(polyMasks: Iterable[Polygon])(model: RasterSource): RasterSource = {
+    if (polyMasks.size > 0)
+      model.mask(polyMasks)
+    else
+      model
+  }
 
-    // Raster layer mask.
-    val layerMasked =
-      if (layerMasks.size > 0) {
-        layerMasks.foldLeft(model) { (rs, mask) =>
-          rs.localCombine(mask) { (z, maskValue) =>
-            if (isData(maskValue)) z
-            else NODATA
-          }
+  def layerMask(layerMasks: Iterable[RasterSource])(model: RasterSource): RasterSource = {
+    if (layerMasks.size > 0) {
+      layerMasks.foldLeft(model) { (rs, mask) =>
+        rs.localCombine(mask) { (z, maskValue) =>
+          if (isData(maskValue)) z
+          else NODATA
         }
-      } else {
-        model
       }
+    } else {
+      model
+    }
+  }
 
-    layerMasked.localCombine(polyMasked) { (z, value) =>
-      if (isData(value)) z
-      else NODATA
+
+  def applyMasks(model: RasterSource, masks: (RasterSource) => RasterSource*) = {
+    masks.foldLeft(model) { (rs, mask) =>
+      mask(rs)
     }
   }
 
@@ -137,21 +126,11 @@ trait ModelingServiceLogic {
    model.classBreaks(numBreaks).run
   }
 
-  def renderTile(layers: Seq[String],
-                 weights: Seq[Int],
-                 breaks: Seq[Int],
-                 rasterExtent: RasterExtent,
-                 colorRamp: String,
-                 polyMask: String,
-                 layerMask: Option[LayerMaskType]) = {
-    val unmasked = weightedOverlay(layers, weights, rasterExtent)
-    val model = getMaskedModel(unmasked, polyMask, layerMask, rasterExtent)
-
+  def renderTile(model: RasterSource, breaks: Seq[Int], colorRamp: String) = {
     val ramp = {
       val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
       cr.interpolate(breaks.length)
     }
-
     val png: ValueSource[Png] = model.renderPng(ramp.toArray, breaks.toArray)
     png.run
   }
@@ -203,6 +182,7 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
                  'layers,
                  'weights,
                  'numBreaks.as[Int],
+                 'threshold.as[Int]?,
                  'polyMask ? "",
                  'layerMask ? "") {
         (bbox, layersParam, weightsParam, numBreaks, polyMask, layerMaskParam) => {
@@ -213,18 +193,21 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
           val layers = layersParam.split(",")
           val weights = weightsParam.split(",").map(_.toInt)
 
-          val layerMask = try {
+          val parsedLayerMask = try {
             import spray.json.DefaultJsonProtocol._
-            layerMaskParam.parseJson.convertTo[LayerMaskType]
+            Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
           } catch {
             case ex: ParsingException =>
               if (!layerMaskParam.isEmpty)
                 ex.printStackTrace(Console.err)
-              Map[String, Array[Int]]()
+              None
           }
 
           val unmasked = weightedOverlay(layers, weights, rasterExtent)
-          val model = getMaskedModel(unmasked, polyMask, Some(layerMask), rasterExtent)
+          val model = applyMasks(unmasked,
+            polyMask(parsePolyMaskParam(polyMaskParam)),
+            layerMask(parseLayerMaskParam(parsedLayerMask, rasterExtent))
+          )
 
           val breaksResult = getBreaks(model, numBreaks)
           breaksResult match {
@@ -254,10 +237,11 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
                  'palette ? "ff0000,ffff00,00ff00,0000ff",
                  'breaks,
                  'colorRamp ? "blue-to-red",
+                 'threshold.as[Int]?,
                  'polyMask ? "",
                  'layerMask ? "") {
         (_, _, _, _, bbox, cols, rows, layersString, weightsString,
-            palette, breaksString, colorRamp, polyMask, layerMaskParam) => {
+            palette, breaksString, colorRamp, polyMaskParam, layerMaskParam) => {
           val extent = Extent.fromString(bbox)
           val rasterExtent = RasterExtent(extent, cols, rows)
 
@@ -265,7 +249,7 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
           val weights = weightsString.split(",").map(_.toInt)
           val breaks = breaksString.split(",").map(_.toInt)
 
-          val layerMask = try {
+          val parsedLayerMask = try {
             import spray.json.DefaultJsonProtocol._
             Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
           } catch {
@@ -275,9 +259,13 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
               None
           }
 
-          val tileResult = renderTile(layers, weights, breaks, rasterExtent, colorRamp,
-            polyMask, layerMask)
+          val unmasked = weightedOverlay(layers, weights, rasterExtent)
+          val model = applyMasks(unmasked,
+            polyMask(parsePolyMaskParam(polyMaskParam)),
+            layerMask(parseLayerMaskParam(parsedLayerMask, rasterExtent))
+          )
 
+          val tileResult = renderTile(model, breaks, colorRamp)
           tileResult match {
             case Complete(img, h) =>
               respondWithMediaType(MediaTypes.`image/png`) {
