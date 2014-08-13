@@ -305,5 +305,70 @@ class ModelingServiceLogicSpec
         fail(message)
     }
   }
+
+  test("Threshold param parsing") {
+    assert(logic.parseThresholdMaskParam(Some(1)) == 1)
+    assert(logic.parseThresholdMaskParam(None).isNaN)
+  }
+
+  test("Threshold interpolation") {
+    assert(logic.interpolate(0, 0, 100) == 0)
+    assert(logic.interpolate(1, 0, 100) == 100)
+    assert(logic.interpolate(0.5, 0, 100) == 50)
+  }
+
+  test("Threshold") {
+    val rs = logic.createRasterSource("Raster5", rasterExtent)
+    // Should filter out the lower 75% values.
+    val thresholdMask = logic.thresholdMask(0.75) _
+    val result = logic.applyMasks(rs, thresholdMask)
+    withClue(result.get.asciiDraw) {
+      assert(tilesAreEqual(result.get,
+        createTile(
+          Array(n, n, n, n, n,
+                n, n, n, n, n,
+                n, n, n, n, n,
+                4, 4, 4, 4, 4,
+                5, 5, 5, 5, 5))))
+    }
+  }
+
+  test("Invalid threshold") {
+    val rs = logic.createRasterSource("Raster5", rasterExtent)
+    // Threshold must be between >= 0 && <= 1.
+    val thresholdMask = logic.thresholdMask(-1) _
+    intercept[IllegalArgumentException] {
+      logic.applyMasks(rs, thresholdMask)
+    }
+  }
+
+  test("Combine polygon, layer, and thresold mask") {
+    val parsedLayerMask = Some(Map("Raster4" -> Array(2, 3, 4)))
+    val layerMaskArgs = logic.parseLayerMaskParam(parsedLayerMask, rasterExtent)
+    val layerMask = logic.layerMask(layerMaskArgs) _
+
+    val poly: Polygon = Rectangle()
+      .withWidth(4)
+      .withHeight(4)
+      .withLowerLeftAt(0, 0)
+      .build
+    val polyMask = logic.polyMask(poly :: Nil) _
+
+    val thresholdMask = logic.thresholdMask(0.5) _
+
+    val rs = logic.createRasterSource("Raster5", rasterExtent)
+    val result = logic.applyMasks(rs, polyMask, layerMask, thresholdMask)
+
+    withClue(result.get.asciiDraw) {
+      assert(tilesAreEqual(result.get,
+        createTile(
+          Array(n, n, n, n, n,
+                n, n, n, n, n,
+                n, 3, 3, 3, n,
+                n, 4, 4, 4, n,
+                n, 5, 5, 5, n))))
+    }
+  }
+
 }
 

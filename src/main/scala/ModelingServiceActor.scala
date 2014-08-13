@@ -80,6 +80,11 @@ trait ModelingServiceLogic {
     }
   }
 
+  def parseThresholdMaskParam(threshold: Option[Double]): Double = {
+    threshold match {
+      case Some(n) => n
+      case None => Double.NaN
+    }
   }
 
   def polyMask(polyMasks: Iterable[Polygon])(model: RasterSource): RasterSource = {
@@ -102,6 +107,23 @@ trait ModelingServiceLogic {
     }
   }
 
+  def interpolate(n: Double, min: Int, max: Int): Int = {
+      Math.floor((max - min) * n + min).toInt
+  }
+
+  def thresholdMask(threshold: Double)(model: RasterSource): RasterSource = {
+    if (threshold.isNaN) {
+      model
+    } else {
+      require(threshold >= 0 && threshold <= 1)
+      val (min, max) = model.minMax.get
+      val n = interpolate(threshold, min, max)
+      model.localMap { z =>
+        if (z >= n) z
+        else NODATA
+      }
+    }
+  }
 
   def applyMasks(model: RasterSource, masks: (RasterSource) => RasterSource*) = {
     masks.foldLeft(model) { (rs, mask) =>
@@ -182,10 +204,10 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
                  'layers,
                  'weights,
                  'numBreaks.as[Int],
-                 'threshold.as[Int]?,
+                 'threshold.as[Double]?,
                  'polyMask ? "",
                  'layerMask ? "") {
-        (bbox, layersParam, weightsParam, numBreaks, polyMask, layerMaskParam) => {
+        (bbox, layersParam, weightsParam, numBreaks, thresholdParam, polyMaskParam, layerMaskParam) => {
           val extent = Extent.fromString(bbox)
           // TODO: Dynamic breaks based on configurable breaks resolution.
           val rasterExtent = RasterExtent(extent, 256, 256)
@@ -206,7 +228,8 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
           val unmasked = weightedOverlay(layers, weights, rasterExtent)
           val model = applyMasks(unmasked,
             polyMask(parsePolyMaskParam(polyMaskParam)),
-            layerMask(parseLayerMaskParam(parsedLayerMask, rasterExtent))
+            layerMask(parseLayerMaskParam(parsedLayerMask, rasterExtent)),
+            thresholdMask(parseThresholdMaskParam(thresholdParam))
           )
 
           val breaksResult = getBreaks(model, numBreaks)
@@ -237,11 +260,11 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
                  'palette ? "ff0000,ffff00,00ff00,0000ff",
                  'breaks,
                  'colorRamp ? "blue-to-red",
-                 'threshold.as[Int]?,
+                 'threshold.as[Double]?,
                  'polyMask ? "",
                  'layerMask ? "") {
         (_, _, _, _, bbox, cols, rows, layersString, weightsString,
-            palette, breaksString, colorRamp, polyMaskParam, layerMaskParam) => {
+            palette, breaksString, colorRamp, thresholdParam, polyMaskParam, layerMaskParam) => {
           val extent = Extent.fromString(bbox)
           val rasterExtent = RasterExtent(extent, cols, rows)
 
@@ -262,7 +285,8 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
           val unmasked = weightedOverlay(layers, weights, rasterExtent)
           val model = applyMasks(unmasked,
             polyMask(parsePolyMaskParam(polyMaskParam)),
-            layerMask(parseLayerMaskParam(parsedLayerMask, rasterExtent))
+            layerMask(parseLayerMaskParam(parsedLayerMask, rasterExtent)),
+            thresholdMask(parseThresholdMaskParam(thresholdParam))
           )
 
           val tileResult = renderTile(model, breaks, colorRamp)
