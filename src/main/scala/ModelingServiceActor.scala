@@ -46,10 +46,10 @@ trait ModelingServiceLogic {
   def getPolygons(mask: String): Seq[Polygon] = {
     import spray.json.DefaultJsonProtocol._
     try {
-      mask
-        .parseGeoJson[JsonFeatureCollection]
-        .getAllPolygons
-        .map(_.reproject(LatLng, WebMercator))
+      val featureColl = mask.parseGeoJson[JsonFeatureCollection]
+      val polys = featureColl.getAllPolygons union
+                  featureColl.getAllMultiPolygons.map(_.polygons).flatten
+      polys.map(_.reproject(LatLng, WebMercator))
     } catch {
       case ex: ParsingException =>
         if (!mask.isEmpty)
