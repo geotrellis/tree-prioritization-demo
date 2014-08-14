@@ -1,5 +1,15 @@
 var weightedOverlay, map, summary;
 
+// Los Angeles extent (xmin, ymin, xmax, ymax)
+var bbox = [-1.3415009998022718E7,
+            3902022.154861766,
+            -1.2910049313106166E7,
+            4169452.4638042958].join(",")
+
+var defaultCenter = [34.052234, -118.243685];
+
+var defaultZoom = 10;
+
 var layers = [
     {name: 'Budget_Sum-huc08', weight: 0},
     {name: 'Peo10_no-huc12', weight: 0},
@@ -92,7 +102,7 @@ map = (function() {
 
     var maskGroup = new L.FeatureGroup();
 
-    m.setView([39.33429742980725, -97.05322265625], 5);
+    m.setView(defaultCenter, defaultZoom);
 
     var baseMap = L.tileLayer(
         'http://{s}.tiles.mapbox.com/v3/azavea.map-zbompf85/{z}/{x}/{y}.png', {
@@ -181,6 +191,7 @@ weightedOverlay = (function() {
             url: 'gt/breaks',
             type: 'POST',
             data: {
+                bbox: bbox,
                 layers: getLayers(),
                 weights: getWeights(),
                 numBreaks: numBreaks,
@@ -211,6 +222,7 @@ weightedOverlay = (function() {
             url: 'gt/histogram',
             type: 'POST',
             data: {
+                bbox: bbox,
                 layer: layers[0].name,
                 polyMask: geoJson
             },

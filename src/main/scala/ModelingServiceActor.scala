@@ -199,14 +199,14 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
 
   lazy val breaksRoute = path("gt" / "breaks") {
     post {
-      formFields('layers,
+      formFields('bbox,
+                 'layers,
                  'weights,
                  'numBreaks.as[Int],
                  'polyMask ? "",
                  'layerMask ? "") {
-        (layersParam, weightsParam, numBreaks, polyMask, layerMaskParam) => {
-          // TODO: Read extent from query string (bbox).
-          val extent = Extent(-19840702.0356, 2143556.8396, -7452702.0356, 11537556.8396)
+        (bbox, layersParam, weightsParam, numBreaks, polyMask, layerMaskParam) => {
+          val extent = Extent.fromString(bbox)
           // TODO: Dynamic breaks based on configurable breaks resolution.
           val rasterExtent = RasterExtent(extent, 256, 256)
 
@@ -293,11 +293,12 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
 
   lazy val histogramRoute = path("gt" / "histogram") {
     post {
-      formFields('layer, 'polyMask ? "") {
-        (layer, polyMaskParam) => {
+      formFields('bbox,
+                 'layer,
+                 'polyMask ? "") {
+        (bbox, layer, polyMaskParam) => {
           val start = System.currentTimeMillis()
-          // TODO: Read extent from query string (bbox).
-          val extent = Extent(-19840702.0356, 2143556.8396, -7452702.0356, 11537556.8396)
+          val extent = Extent.fromString(bbox)
           // TODO: Dynamic breaks based on configurable breaks resolution.
           val rasterExtent = RasterExtent(extent, 256, 256)
           val rs = createRasterSource(layer, rasterExtent)
