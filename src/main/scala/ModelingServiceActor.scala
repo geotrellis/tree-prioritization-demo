@@ -55,8 +55,8 @@ trait ModelingServiceLogic {
     * to support multiple polygons in the future.
     */
   def parsePolyMaskParam(polyMask: String): Seq[Polygon] = {
-    import spray.json.DefaultJsonProtocol._
     try {
+      import spray.json.DefaultJsonProtocol._
       val featureColl = polyMask.parseGeoJson[JsonFeatureCollection]
       val polys = featureColl.getAllPolygons union
                   featureColl.getAllMultiPolygons.map(_.polygons).flatten
@@ -69,7 +69,11 @@ trait ModelingServiceLogic {
     }
   }
 
-  /** Convert layer mask map to a RasterSource sequence.  */
+  /** Convert `layerMask` map to list of filtered rasters..
+    * The result contains a raster for each layer specified,
+    * and that raster only contains whitelisted values present
+    * in the `layerMask` argument.
+    */
   def parseLayerMaskParam(layerMask: Option[LayerMaskType],
                           extent: RasterExtent): Iterable[RasterSource] = {
     layerMask match {
@@ -85,6 +89,7 @@ trait ModelingServiceLogic {
     }
   }
 
+  /** Combine multiple polygons into a single mask raster. */
   def polyMask(polyMasks: Iterable[Polygon])(model: RasterSource): RasterSource = {
     if (polyMasks.size > 0)
       model.mask(polyMasks)
@@ -92,6 +97,10 @@ trait ModelingServiceLogic {
       model
   }
 
+  /** Combine multiple rasters into a single raster.
+    * The resulting raster will contain values from `model` only at
+    * points that have values in every `layerMask`. (AND-like operation)
+    */
   def layerMask(layerMasks: Iterable[RasterSource])(model: RasterSource): RasterSource = {
     if (layerMasks.size > 0) {
       layerMasks.foldLeft(model) { (rs, mask) =>
@@ -105,23 +114,28 @@ trait ModelingServiceLogic {
     }
   }
 
+  /** Filter all values from `model` that are less than `threshold`. */
   def thresholdMask(threshold: Int)(model: RasterSource): RasterSource = {
-    if (threshold == NODATA) {
-      model
-    } else {
+    if (threshold > NODATA) {
       model.localMap { z =>
         if (z >= threshold) z
         else NODATA
       }
+    } else {
+      model
     }
   }
 
+  /** Filter model by 1 or more masks. */
   def applyMasks(model: RasterSource, masks: (RasterSource) => RasterSource*) = {
     masks.foldLeft(model) { (rs, mask) =>
       mask(rs)
     }
   }
 
+  /** Multiply `layers` by their corresponding `weights` and combine
+    * them to form a single raster.
+    */
   def weightedOverlay(layers:Seq[String],
                       weights:Seq[Int],
                       rasterExtent: RasterExtent): RasterSource = {
@@ -135,10 +149,12 @@ trait ModelingServiceLogic {
       .localAdd
   }
 
+  /** Return a class breaks operation for `model`. */
   def getBreaks(model: RasterSource, numBreaks: Int) = {
    model.classBreaks(numBreaks).run
   }
 
+  /** Return a render tile as PNG operation for `model`. */
   def renderTile(model: RasterSource, breaks: Seq[Int], colorRamp: String) = {
     val ramp = {
       val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
@@ -148,6 +164,7 @@ trait ModelingServiceLogic {
     png.run
   }
 
+  /** Return raster value distribution for `model`. */
   def histogram(model: RasterSource, polyMask: Seq[Polygon]) = {
     val summary: ValueSource[Histogram] = {
       if (polyMask.size > 0) {
@@ -163,7 +180,7 @@ trait ModelingServiceLogic {
     summary.run
   }
 
-  /** Return raster value for given point */
+  /** Return raster value at a certain point. */
   def rasterValue(model: RasterSource, x: Double, y: Double): Int = {
     val pt = Point(x, y).reproject(LatLng, WebMercator)
     model.mapWithExtent { (tile, extent) =>
@@ -176,15 +193,15 @@ trait ModelingServiceLogic {
       }
     }.get.flatten.toList match {
       case head :: tail => head
-      case List() => NODATA
+      case Nil => NODATA
     }
   }
 }
 
 trait ModelingService extends HttpService with ModelingServiceLogic {
-  implicit def executionContext = actorRefFactory.dispatcher
-
   import ModelingTypes._
+
+  implicit def executionContext = actorRefFactory.dispatcher
 
   lazy val serviceRoute =
     handleExceptions(exceptionHandler) {
@@ -197,6 +214,7 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
       staticRoute
     }
 
+  /** Handle all exceptions that bubble up from `failWith` calls. */
   lazy val exceptionHandler = ExceptionHandler {
     case ex: ModelingException =>
       ex.printStackTrace(Console.err)
@@ -210,10 +228,12 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
       complete(StatusCodes.InternalServerError)
   }
 
+  // TODO: Remove
   lazy val indexRoute = pathSingleSlash {
     getFromFile(ServiceConfig.staticPath + "/index.html")
   }
 
+  // TODO: Remove
   lazy val staticRoute = pathPrefix("") {
     getFromDirectory(ServiceConfig.staticPath)
   }

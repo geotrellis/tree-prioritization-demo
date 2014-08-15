@@ -37,6 +37,7 @@ Here are the HTTP endpoints that are available from this service.
 * [/gt/breaks](#gtbreaks)
 * [/gt/wo](#gtwo)
 * [/gt/histogram](#gthistogram)
+* [/gt/value](#gtvalue)
 
 ### <a name="index"></a> /
 
@@ -75,7 +76,7 @@ Arguments:
 | layers     | Yes       | String  | Layer names (comma delimited). Should match the source raster file names.
 | weights    | Yes       | String  | Layer weights (comma delimited integers) for corresponding layer.
 | numBreaks  | Yes       | Int     | Number of result class breaks.
-| threshold  |           | Double  | Exclude values lower than this value in class breaks calculation.
+| threshold  |           | Int     | Exclude values lower than this value in class breaks calculation. (Default: `NODATA`)
 | polyMask   |           | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
 | layerMask  |           | JSON    | Exclude values from result. Map of layer names to selected raster values. Format: `{ LayerName: [1, 2, 3], ...}`
 
@@ -105,7 +106,7 @@ Arguments:
 | weights    | Yes       | String  | Layer weights (comma delimited integers) for corresponding layer.
 | breaks     | Yes       | String  | Class breaks (comma delimited integers)
 | colorRamp  |           | String  | Color ramp name. (Default: `blue-to-red`)
-| threshold  |           | Double  | Exclude values lower than this value in class breaks calculation.
+| threshold  |           | Int     | Exclude values lower than this value in class breaks calculation. (Default: `NODATA`)
 | polyMask   |           | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
 | layerMask  |           | JSON    | Exclude values from result. Map of layer names to selected raster values. Format: `{ LayerName: [1, 2, 3], ...}`
 
@@ -130,4 +131,25 @@ Sample output:
         "histogram": [[1,25069],[2,9809],[3,3661],[4,2683],[5,492],[8,348],[9,624],[10,3122],[14,1336]]
     }
 
+### /gt/value
+
+Return value for multiple points on a raster.
+
+Accepted verbs: __POST__
+
+Arguments:
+
+| Name       | Required? | Type    |  Description |
+|------------|-----------|---------|--------------|
+| layer      | Yes       | String  | Layer name.
+| coords     | Yes       | String  | Comma delimited list of values formatted like `Name,X,Y,...`. Coordinates should be projected as LatLng. (Example: `Tree1,0,0,Tree2,100,100`)
+
+Sample output:
+
+    {
+        "coords": [
+            ["Tree 1", -118.24722290039064, 33.972975771726006, 35],
+            ["Tree 2", -117.91488647460938, 33.81680727566875, 23]
+        ]
+    }
 
