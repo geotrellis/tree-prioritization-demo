@@ -16,7 +16,9 @@ import geotrellis.engine.stats._
 
 import akka.actor.Actor
 import spray.routing.HttpService
+import spray.routing.ExceptionHandler
 import spray.http.MediaTypes
+import spray.http.StatusCodes
 
 import spray.json._
 import org.parboiled.errors.ParsingException
@@ -179,12 +181,27 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
   import ModelingTypes._
 
   lazy val serviceRoute =
-    indexRoute ~
-    colorsRoute ~
-    breaksRoute ~
-    overlayRoute ~
-    histogramRoute ~
-    staticRoute
+    handleExceptions(exceptionHandler) {
+      indexRoute ~
+      colorsRoute ~
+      breaksRoute ~
+      overlayRoute ~
+      histogramRoute ~
+      staticRoute
+    }
+
+  lazy val exceptionHandler = ExceptionHandler {
+    case ex: ModelingException =>
+      ex.printStackTrace(Console.err)
+      complete(StatusCodes.InternalServerError, s"""{
+          "status": "${StatusCodes.InternalServerError}",
+          "statusCode": ${StatusCodes.InternalServerError.intValue},
+          "message": "${ex.getMessage.replace("\"", "\\\"")}"
+        } """)
+    case ex =>
+      ex.printStackTrace(Console.err)
+      complete(StatusCodes.InternalServerError)
+  }
 
   lazy val indexRoute = pathSingleSlash {
     getFromFile(ServiceConfig.staticPath + "/index.html")
@@ -235,9 +252,13 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
           val breaksResult = getBreaks(model, numBreaks)
           breaksResult match {
             case Complete(breaks, _) =>
-              val breaksArray = breaks.mkString("[", ",", "]")
-              val json = s"""{ "classBreaks" : $breaksArray }"""
-              complete(json)
+              if (breaks.size > 0 && breaks(0) == NODATA) {
+                failWith(new ModelingException("Unable to calculate breaks (NODATA)."))
+              } else {
+                val breaksArray = breaks.mkString("[", ",", "]")
+                val json = s"""{ "classBreaks" : $breaksArray }"""
+                complete(json)
+              }
             case Error(message, trace) =>
               failWith(new RuntimeException(message))
           }
