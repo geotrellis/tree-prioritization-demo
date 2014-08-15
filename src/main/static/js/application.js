@@ -1,4 +1,4 @@
-var weightedOverlay, map, summary;
+var weightedOverlay, map, summary, pointControl, pointMarker;
 
 // Los Angeles extent (xmin, ymin, xmax, ymax)
 var bbox = [-1.3415009998022718E7,
@@ -11,8 +11,8 @@ var defaultCenter = [34.052234, -118.243685];
 var defaultZoom = 10;
 
 var layers = [
-    {name: 'Budget_Sum-huc08', weight: 0},
     {name: 'Peo10_no-huc12', weight: 0},
+    {name: 'Budget_Sum-huc08', weight: 0},
     {name: 'HUC_sqmi-huc12', weight: 0}
 ];
 
@@ -145,6 +145,44 @@ map = (function() {
         }
     }));
 
+    m.on('click', function(e) {
+        console.log(e);
+        var icon = new L.Icon.Default({
+            iconUrl: '../img/leaflet/marker-icon.png',
+            shadowUrl: '../img/leaflet/marker-shadow.png'
+        });
+
+        if (pointMarker) {
+            m.removeControl(pointMarker);
+        }
+        pointMarker = new L.Marker(e.latlng, {
+            icon: icon
+        });
+        m.addControl(pointMarker);
+
+        var pt = e.latlng;
+        var coords = ["Tree ID", pt.lng, pt.lat].join(",");
+
+        $.ajax({
+            url: 'gt/value',
+            type: 'POST',
+            data: {
+                bbox: bbox,
+                layer: layers[0].name,
+                coords: coords
+            },
+            dataType: 'json',
+            success: function(data) {
+                if (pointControl) {
+                    m.removeControl(pointControl);
+                    pointControl = null;
+                }
+                pointControl = new SummaryControl({ json: data });
+                m.addControl(pointControl);
+            }
+        });
+    });
+
     return {
         getMaskGeoJSON: function() {
             return maskGroup.toGeoJSON();
@@ -227,8 +265,8 @@ weightedOverlay = (function() {
                 polyMask: geoJson
             },
             dataType: "json",
-            success: function(r) {
-                summary = new SummaryControl({ json: r });
+            success: function(data) {
+                summary = new SummaryControl({ json: data });
                 map.getRawMap().addControl(summary);
             }
         });
