@@ -13,9 +13,12 @@ import geotrellis.testkit.vector._
 
 class MockModelingServiceLogic(sources: Map[String, Tile])
     extends ModelingServiceLogic {
-  override def createRasterSource(layer: String, rasterExtent: RasterExtent) = {
+
+  override def createRasterSource(layer: String): RasterSource  =
+    return ???
+
+  override def createRasterSource(layer: String, rasterExtent: RasterExtent) =
     RasterSource(sources(layer), rasterExtent.extent)
-  }
 }
 
 class ModelingServiceLogicSpec

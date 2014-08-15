@@ -40,10 +40,13 @@ class ModelingServiceActor extends Actor with ModelingService {
 
 
 trait ModelingServiceLogic {
+  import ModelingTypes._
+
+  def createRasterSource(layer: String) =
+    RasterSource(layer)
+
   def createRasterSource(layer: String, extent: RasterExtent) =
     RasterSource(layer, extent)
-
-  import ModelingTypes._
 
   /** Convert GeoJson string to Polygon sequence.
     * The `polyMask` parameter expects a single GeoJson blob,
@@ -159,6 +162,23 @@ trait ModelingServiceLogic {
     }
     summary.run
   }
+
+  /** Return raster value for given point */
+  def rasterValue(model: RasterSource, x: Double, y: Double): Int = {
+    val pt = Point(x, y).reproject(LatLng, WebMercator)
+    model.mapWithExtent { (tile, extent) =>
+      if (extent.intersects(pt)) {
+        val re = RasterExtent(extent, tile.cols, tile.rows)
+        val (col, row) = re.mapToGrid(pt.x, pt.y)
+        Some(tile.get(col, row))
+      } else {
+        None
+      }
+    }.get.flatten.toList match {
+      case head :: tail => head
+      case List() => NODATA
+    }
+  }
 }
 
 trait ModelingService extends HttpService with ModelingServiceLogic {
@@ -173,6 +193,7 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
       breaksRoute ~
       overlayRoute ~
       histogramRoute ~
+      rasterValueRoute ~
       staticRoute
     }
 
@@ -337,6 +358,28 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
               failWith(new RuntimeException(message))
           }
         }
+      }
+    }
+  }
+
+  lazy val rasterValueRoute = path("gt" / "value") {
+    post {
+      formFields('layer, 'coords) { (layer, coordsParam) =>
+        val rs = createRasterSource(layer)
+
+        val coords = (coordsParam.split(",").grouped(3) collect {
+          case Array(id, xParam, yParam) =>
+            try {
+              val (x, y) = (xParam.toDouble, yParam.toDouble)
+              val z = rasterValue(rs, x, y)
+              Some((id, x, y, z))
+            } catch {
+              case ex: NumberFormatException => None
+            }
+        }).toList
+
+        import spray.json.DefaultJsonProtocol._
+        complete(s"""{ "coords": ${coords.toJson} }""")
       }
     }
   }
