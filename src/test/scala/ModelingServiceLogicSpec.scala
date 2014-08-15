@@ -306,21 +306,10 @@ class ModelingServiceLogicSpec
     }
   }
 
-  test("Threshold param parsing") {
-    assert(logic.parseThresholdMaskParam(Some(1)) == 1)
-    assert(logic.parseThresholdMaskParam(None).isNaN)
-  }
-
-  test("Threshold interpolation") {
-    assert(logic.interpolate(0, 0, 100) == 0)
-    assert(logic.interpolate(1, 0, 100) == 100)
-    assert(logic.interpolate(0.5, 0, 100) == 50)
-  }
-
   test("Threshold") {
     val rs = logic.createRasterSource("Raster5", rasterExtent)
-    // Should filter out the lower 75% values.
-    val thresholdMask = logic.thresholdMask(0.75) _
+    // Should filter out values lower than 4.
+    val thresholdMask = logic.thresholdMask(4) _
     val result = logic.applyMasks(rs, thresholdMask)
     withClue(result.get.asciiDraw) {
       assert(tilesAreEqual(result.get,
@@ -335,10 +324,10 @@ class ModelingServiceLogicSpec
 
   test("Invalid threshold") {
     val rs = logic.createRasterSource("Raster5", rasterExtent)
-    // Threshold must be between >= 0 && <= 1.
     val thresholdMask = logic.thresholdMask(-1) _
-    intercept[IllegalArgumentException] {
-      logic.applyMasks(rs, thresholdMask)
+    val result = logic.applyMasks(rs, thresholdMask)
+    withClue(result.get.asciiDraw) {
+      assert(tilesAreEqual(result.get, testRasters("Raster5")))
     }
   }
 
@@ -354,7 +343,7 @@ class ModelingServiceLogicSpec
       .build
     val polyMask = logic.polyMask(poly :: Nil) _
 
-    val thresholdMask = logic.thresholdMask(0.5) _
+    val thresholdMask = logic.thresholdMask(3) _
 
     val rs = logic.createRasterSource("Raster5", rasterExtent)
     val result = logic.applyMasks(rs, polyMask, layerMask, thresholdMask)
