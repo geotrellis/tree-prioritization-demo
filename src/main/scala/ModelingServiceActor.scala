@@ -151,33 +151,29 @@ trait ModelingServiceLogic {
 
   /** Return a class breaks operation for `model`. */
   def getBreaks(model: RasterSource, numBreaks: Int) = {
-   model.classBreaks(numBreaks).run
+   model.classBreaks(numBreaks)
   }
 
   /** Return a render tile as PNG operation for `model`. */
-  def renderTile(model: RasterSource, breaks: Seq[Int], colorRamp: String) = {
+  def renderTile(model: RasterSource, breaks: Seq[Int], colorRamp: String): ValueSource[Png] = {
     val ramp = {
       val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
       cr.interpolate(breaks.length)
     }
-    val png: ValueSource[Png] = model.renderPng(ramp.toArray, breaks.toArray)
-    png.run
+    model.renderPng(ramp.toArray, breaks.toArray)
   }
 
   /** Return raster value distribution for `model`. */
-  def histogram(model: RasterSource, polyMask: Seq[Polygon]) = {
-    val summary: ValueSource[Histogram] = {
-      if (polyMask.size > 0) {
-        val histograms =
-          DataSource.fromSources(
-            polyMask map { p => model.zonalHistogram(p) }
-          )
-        histograms.converge { seq => FastMapHistogram.fromHistograms(seq) }
-      } else {
-        model.histogram
-      }
+  def histogram(model: RasterSource, polyMask: Seq[Polygon]): ValueSource[Histogram] = {
+    if (polyMask.size > 0) {
+      val histograms =
+        DataSource.fromSources(
+          polyMask map { p => model.zonalHistogram(p) }
+        )
+      histograms.converge { seq => FastMapHistogram.fromHistograms(seq) }
+    } else {
+      model.histogram
     }
-    summary.run
   }
 
   /** Return raster value at a certain point. */
@@ -276,8 +272,8 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
             thresholdMask(threshold)
           )
 
-          val breaksResult = getBreaks(model, numBreaks)
-          breaksResult match {
+          val breaks = getBreaks(model, numBreaks)
+          breaks.run match {
             case Complete(breaks, _) =>
               if (breaks.size > 0 && breaks(0) == NODATA) {
                 failWith(new ModelingException("Unable to calculate breaks (NODATA)."))
@@ -337,8 +333,8 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
             thresholdMask(threshold)
           )
 
-          val tileResult = renderTile(model, breaks, colorRamp)
-          tileResult match {
+          val tile = renderTile(model, breaks, colorRamp)
+          tile.run match {
             case Complete(img, h) =>
               respondWithMediaType(MediaTypes.`image/png`) {
                 complete(img.bytes)
@@ -364,7 +360,7 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
           val rs = createRasterSource(layer, rasterExtent)
           val polyMask = parsePolyMaskParam(polyMaskParam)
           val summary = histogram(rs, polyMask)
-          summary match {
+          summary.run match {
             case Complete(result, h) =>
               val elapsedTotal = System.currentTimeMillis - start
               val histogram = result.toJSON
