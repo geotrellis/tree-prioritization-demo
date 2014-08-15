@@ -4,11 +4,11 @@ name := "opentreemap-modeling"
 
 scalaVersion := "2.10.0"
 
-resolvers += Resolver.sonatypeRepo("snapshots")
-
-resolvers += "spray" at "http://repo.spray.io/"
-
-resolvers += "Geotools" at "http://download.osgeo.org/webdav/geotools/"
+resolvers ++= Seq(
+    Resolver.sonatypeRepo("snapshots"),
+    "spray" at "http://repo.spray.io/",
+    "Geotools" at "http://download.osgeo.org/webdav/geotools/"
+)
 
 libraryDependencies ++= Seq(
   "com.azavea.geotrellis" %% "geotrellis-services" % "0.10.0-SNAPSHOT",
