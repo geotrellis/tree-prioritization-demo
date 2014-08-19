@@ -118,7 +118,7 @@ class ModelingServiceLogicSpec
     val numBreaks = 10
     val model = logic.weightedOverlay(layers, weights, rasterExtent)
     val result = logic.getBreaks(model, numBreaks)
-    result match {
+    result.run match {
       case Complete(breaks, _) =>
         assert(breaks.min == 0)
         // The max break is highest raster value multiplied by its weight (1 x 1).
@@ -269,7 +269,7 @@ class ModelingServiceLogicSpec
     val polyMask = Nil
     val rs = logic.createRasterSource("Raster5", rasterExtent)
     val summary =  logic.histogram(rs, polyMask)
-    summary match {
+    summary.run match {
       case Complete(result, h) =>
         assert(result.getTotalCount == 25)
         assert(result.getMinValue == 1)
@@ -294,7 +294,7 @@ class ModelingServiceLogicSpec
 
     val rs = logic.createRasterSource("Raster5", rasterExtent)
     val summary =  logic.histogram(rs, polyMask)
-    summary match {
+    summary.run match {
       case Complete(result, h) =>
         assert(result.getTotalCount == 9)
         assert(result.getMinValue == 3)
