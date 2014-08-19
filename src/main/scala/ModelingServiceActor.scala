@@ -60,7 +60,7 @@ trait ModelingServiceLogic {
       val featureColl = polyMask.parseGeoJson[JsonFeatureCollection]
       val polys = featureColl.getAllPolygons union
                   featureColl.getAllMultiPolygons.map(_.polygons).flatten
-      polys.map(_.reproject(LatLng, WebMercator))
+      polys
     } catch {
       case ex: ParsingException =>
         if (!polyMask.isEmpty)
