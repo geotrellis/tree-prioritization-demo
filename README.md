@@ -77,7 +77,7 @@ Arguments:
 | weights    | Yes       | String  | Layer weights (comma delimited integers) for corresponding layer.
 | numBreaks  | Yes       | Int     | Number of result class breaks.
 | threshold  |           | Int     | Exclude values lower than this value in class breaks calculation. (Default: `NODATA`)
-| polyMask   |           | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
+| polyMask   |           | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons projected in WebMercator.
 | layerMask  |           | JSON    | Exclude values from result. Map of layer names to selected raster values. Format: `{ LayerName: [1, 2, 3], ...}`
 
 Sample output:
@@ -107,7 +107,7 @@ Arguments:
 | breaks     | Yes       | String  | Class breaks (comma delimited integers)
 | colorRamp  |           | String  | Color ramp name. (Default: `blue-to-red`)
 | threshold  |           | Int     | Exclude values lower than this value in class breaks calculation. (Default: `NODATA`)
-| polyMask   |           | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
+| polyMask   |           | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons projected in WebMercator.
 | layerMask  |           | JSON    | Exclude values from result. Map of layer names to selected raster values. Format: `{ LayerName: [1, 2, 3], ...}`
 
 ### /gt/histogram
