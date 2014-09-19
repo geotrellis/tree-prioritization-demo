@@ -112,7 +112,7 @@ Arguments:
 
 ### /gt/histogram
 
-Return distribution of raster values for specified `layers` within `polyMask` (optional).
+Return distribution of raster values for specified `layer` within `polyMask` (optional).
 
 Accepted verbs: __POST__
 
@@ -121,7 +121,7 @@ Arguments:
 | Name       | Required? | Type    |  Description |
 |------------|-----------|---------|--------------|
 | bbox       | Yes       | String  | Bounding box projected as WebMercator. Format: `xmin,ymin,xmax,ymax`
-| layers     | Yes       | String  | Layer names (comma delimited). Should match the source raster file names.
+| layer      | Yes       | String  | Layer name. Should match the filename of the source raster.
 | polyMask   |           | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
 
 Sample output:
