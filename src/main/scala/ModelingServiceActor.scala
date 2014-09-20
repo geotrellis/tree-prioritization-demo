@@ -69,7 +69,7 @@ trait ModelingServiceLogic {
     }
   }
 
-  /** Convert `layerMask` map to list of filtered rasters..
+  /** Convert `layerMask` map to list of filtered rasters.
     * The result contains a raster for each layer specified,
     * and that raster only contains whitelisted values present
     * in the `layerMask` argument.
@@ -177,8 +177,7 @@ trait ModelingServiceLogic {
   }
 
   /** Return raster value at a certain point. */
-  def rasterValue(model: RasterSource, x: Double, y: Double): Int = {
-    val pt = Point(x, y).reproject(LatLng, WebMercator)
+  def rasterValue(model: RasterSource, pt: Point): Int = {
     model.mapWithExtent { (tile, extent) =>
       if (extent.intersects(pt)) {
         val re = RasterExtent(extent, tile.cols, tile.rows)
@@ -244,10 +243,12 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
                  'layers,
                  'weights,
                  'numBreaks.as[Int],
+                 'crs,
                  'threshold.as[Int] ? NODATA,
                  'polyMask ? "",
                  'layerMask ? "") {
-        (bbox, layersParam, weightsParam, numBreaks, threshold, polyMaskParam, layerMaskParam) => {
+        (bbox, layersParam, weightsParam, numBreaks, crs, threshold,
+            polyMaskParam, layerMaskParam) => {
           val extent = Extent.fromString(bbox)
           // TODO: Dynamic breaks based on configurable breaks resolution.
           val rasterExtent = RasterExtent(extent, 256, 256)
@@ -265,9 +266,14 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
               None
           }
 
+          val polys = parsePolyMaskParam(polyMaskParam)
+          val reprojectedPolys =
+            if (crs == "WebMercator") polys
+            else polys.map(_.reproject(LatLng, WebMercator))
+
           val unmasked = weightedOverlay(layers, weights, rasterExtent)
           val model = applyMasks(unmasked,
-            polyMask(parsePolyMaskParam(polyMaskParam)),
+            polyMask(reprojectedPolys),
             layerMask(parseLayerMaskParam(parsedLayerMask, rasterExtent)),
             thresholdMask(threshold)
           )
@@ -303,12 +309,14 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
                  'weights,
                  'palette ? "ff0000,ffff00,00ff00,0000ff",
                  'breaks,
+                 'crs,
                  'colorRamp ? "blue-to-red",
                  'threshold.as[Int] ? NODATA,
                  'polyMask ? "",
                  'layerMask ? "") {
         (_, _, _, _, bbox, cols, rows, layersString, weightsString,
-            palette, breaksString, colorRamp, threshold, polyMaskParam, layerMaskParam) => {
+            palette, breaksString, crs, colorRamp, threshold,
+            polyMaskParam, layerMaskParam) => {
           val extent = Extent.fromString(bbox)
           val rasterExtent = RasterExtent(extent, cols, rows)
 
@@ -326,9 +334,14 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
               None
           }
 
+          val polys = parsePolyMaskParam(polyMaskParam)
+          val reprojectedPolys =
+            if (crs == "WebMercator") polys
+            else polys.map(_.reproject(LatLng, WebMercator))
+
           val unmasked = weightedOverlay(layers, weights, rasterExtent)
           val model = applyMasks(unmasked,
-            polyMask(parsePolyMaskParam(polyMaskParam)),
+            polyMask(reprojectedPolys),
             layerMask(parseLayerMaskParam(parsedLayerMask, rasterExtent)),
             thresholdMask(threshold)
           )
@@ -351,15 +364,21 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
     post {
       formFields('bbox,
                  'layer,
+                 'crs,
                  'polyMask ? "") {
-        (bbox, layer, polyMaskParam) => {
+        (bbox, layer, crs, polyMaskParam) => {
           val start = System.currentTimeMillis()
           val extent = Extent.fromString(bbox)
           // TODO: Dynamic breaks based on configurable breaks resolution.
           val rasterExtent = RasterExtent(extent, 256, 256)
           val rs = createRasterSource(layer, rasterExtent)
-          val polyMask = parsePolyMaskParam(polyMaskParam)
-          val summary = histogram(rs, polyMask)
+
+          val polys = parsePolyMaskParam(polyMaskParam)
+          val reprojectedPolys =
+            if (crs == "WebMercator") polys
+            else polys.map(_.reproject(LatLng, WebMercator))
+
+          val summary = histogram(rs, reprojectedPolys)
           summary.run match {
             case Complete(result, h) =>
               val elapsedTotal = System.currentTimeMillis - start
@@ -380,15 +399,18 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
 
   lazy val rasterValueRoute = path("gt" / "value") {
     post {
-      formFields('layer, 'coords) { (layer, coordsParam) =>
+      formFields('layer, 'coords, 'crs) { (layer, coordsParam, crs) =>
         val rs = createRasterSource(layer)
 
         val coords = (coordsParam.split(",").grouped(3) collect {
           case Array(id, xParam, yParam) =>
             try {
-              val (x, y) = (xParam.toDouble, yParam.toDouble)
-              val z = rasterValue(rs, x, y)
-              Some((id, x, y, z))
+              val pt = Point(xParam.toDouble, yParam.toDouble)
+              val reprojectedPt =
+                if (crs == "WebMercator") pt
+                else pt.reproject(LatLng, WebMercator)
+              val z = rasterValue(rs, reprojectedPt)
+              Some((id, pt.x, pt.y, z))
             } catch {
               case ex: NumberFormatException => None
             }
