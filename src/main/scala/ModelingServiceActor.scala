@@ -69,7 +69,7 @@ trait ModelingServiceLogic {
     }
   }
 
-  /** Convert `layerMask` map to list of filtered rasters..
+  /** Convert `layerMask` map to list of filtered rasters.
     * The result contains a raster for each layer specified,
     * and that raster only contains whitelisted values present
     * in the `layerMask` argument.
@@ -177,8 +177,7 @@ trait ModelingServiceLogic {
   }
 
   /** Return raster value at a certain point. */
-  def rasterValue(model: RasterSource, x: Double, y: Double): Int = {
-    val pt = Point(x, y).reproject(LatLng, WebMercator)
+  def rasterValue(model: RasterSource, pt: Point): Int = {
     model.mapWithExtent { (tile, extent) =>
       if (extent.intersects(pt)) {
         val re = RasterExtent(extent, tile.cols, tile.rows)
@@ -190,6 +189,22 @@ trait ModelingServiceLogic {
     }.get.flatten.toList match {
       case head :: tail => head
       case Nil => NODATA
+    }
+  }
+
+  def reprojectPolygons(polys: Seq[Polygon], srid: Int): Seq[Polygon] = {
+    srid match {
+      case 3857 => polys
+      case 4326 => polys.map(_.reproject(LatLng, WebMercator))
+      case _ => throw new ModelingException("SRID not supported.")
+    }
+  }
+
+  def reprojectPoint(point: Point, srid: Int): Point = {
+    srid match {
+      case 3857 => point
+      case 4326 => point.reproject(LatLng, WebMercator)
+      case _ => throw new ModelingException("SRID not supported.")
     }
   }
 }
@@ -244,10 +259,12 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
                  'layers,
                  'weights,
                  'numBreaks.as[Int],
+                 'srid.as[Int],
                  'threshold.as[Int] ? NODATA,
                  'polyMask ? "",
                  'layerMask ? "") {
-        (bbox, layersParam, weightsParam, numBreaks, threshold, polyMaskParam, layerMaskParam) => {
+        (bbox, layersParam, weightsParam, numBreaks, srid, threshold,
+            polyMaskParam, layerMaskParam) => {
           val extent = Extent.fromString(bbox)
           // TODO: Dynamic breaks based on configurable breaks resolution.
           val rasterExtent = RasterExtent(extent, 256, 256)
@@ -265,9 +282,15 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
               None
           }
 
+          val polys = reprojectPolygons(
+            parsePolyMaskParam(polyMaskParam),
+            srid
+          )
+
           val unmasked = weightedOverlay(layers, weights, rasterExtent)
-          val model = applyMasks(unmasked,
-            polyMask(parsePolyMaskParam(polyMaskParam)),
+          val model = applyMasks(
+            unmasked,
+            polyMask(polys),
             layerMask(parseLayerMaskParam(parsedLayerMask, rasterExtent)),
             thresholdMask(threshold)
           )
@@ -303,12 +326,14 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
                  'weights,
                  'palette ? "ff0000,ffff00,00ff00,0000ff",
                  'breaks,
+                 'srid.as[Int],
                  'colorRamp ? "blue-to-red",
                  'threshold.as[Int] ? NODATA,
                  'polyMask ? "",
                  'layerMask ? "") {
         (_, _, _, _, bbox, cols, rows, layersString, weightsString,
-            palette, breaksString, colorRamp, threshold, polyMaskParam, layerMaskParam) => {
+            palette, breaksString, srid, colorRamp, threshold,
+            polyMaskParam, layerMaskParam) => {
           val extent = Extent.fromString(bbox)
           val rasterExtent = RasterExtent(extent, cols, rows)
 
@@ -326,9 +351,14 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
               None
           }
 
+          val polys = reprojectPolygons(
+            parsePolyMaskParam(polyMaskParam),
+            srid
+          )
+
           val unmasked = weightedOverlay(layers, weights, rasterExtent)
           val model = applyMasks(unmasked,
-            polyMask(parsePolyMaskParam(polyMaskParam)),
+            polyMask(polys),
             layerMask(parseLayerMaskParam(parsedLayerMask, rasterExtent)),
             thresholdMask(threshold)
           )
@@ -351,15 +381,21 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
     post {
       formFields('bbox,
                  'layer,
+                 'srid.as[Int],
                  'polyMask ? "") {
-        (bbox, layer, polyMaskParam) => {
+        (bbox, layer, srid, polyMaskParam) => {
           val start = System.currentTimeMillis()
           val extent = Extent.fromString(bbox)
           // TODO: Dynamic breaks based on configurable breaks resolution.
           val rasterExtent = RasterExtent(extent, 256, 256)
           val rs = createRasterSource(layer, rasterExtent)
-          val polyMask = parsePolyMaskParam(polyMaskParam)
-          val summary = histogram(rs, polyMask)
+
+          val polys = reprojectPolygons(
+            parsePolyMaskParam(polyMaskParam),
+            srid
+          )
+
+          val summary = histogram(rs, polys)
           summary.run match {
             case Complete(result, h) =>
               val elapsedTotal = System.currentTimeMillis - start
@@ -380,15 +416,20 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
 
   lazy val rasterValueRoute = path("gt" / "value") {
     post {
-      formFields('layer, 'coords) { (layer, coordsParam) =>
+      formFields('layer, 'coords, 'srid.as[Int]) {
+        (layer, coordsParam, srid) =>
+
         val rs = createRasterSource(layer)
 
         val coords = (coordsParam.split(",").grouped(3) collect {
           case Array(id, xParam, yParam) =>
             try {
-              val (x, y) = (xParam.toDouble, yParam.toDouble)
-              val z = rasterValue(rs, x, y)
-              Some((id, x, y, z))
+              val pt = reprojectPoint(
+                Point(xParam.toDouble, yParam.toDouble),
+                srid
+              )
+              val z = rasterValue(rs, pt)
+              Some((id, pt.x, pt.y, z))
             } catch {
               case ex: NumberFormatException => None
             }
