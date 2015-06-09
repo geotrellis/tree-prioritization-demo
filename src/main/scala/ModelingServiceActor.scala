@@ -1,11 +1,12 @@
 package org.opentreemap.modeling
 
 import geotrellis.raster._
+import geotrellis.raster.histogram._
 import geotrellis.raster.render._
-import geotrellis.raster.stats._
+import geotrellis.raster.op.stats._
 import geotrellis.services._
 import geotrellis.vector._
-import geotrellis.vector.json._
+import geotrellis.vector.io.json._
 import geotrellis.vector.reproject._
 import geotrellis.proj4._
 import geotrellis.engine._
@@ -21,7 +22,7 @@ import spray.http.MediaTypes
 import spray.http.StatusCodes
 
 import spray.json._
-import org.parboiled.errors.ParsingException
+import spray.json.JsonParser.ParsingException
 
 import com.vividsolutions.jts.{ geom => jts }
 
