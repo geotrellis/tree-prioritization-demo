@@ -17,11 +17,11 @@ object TestFiles {
   val dataPath = "data/catalog"
 
   def getRaster(p: String): Raster = {
-    val geoTiff = GeoTiffReader.read(p)
-    val crs = geoTiff.metaData.crs
-    val extent = geoTiff.metaData.extent
+    val geoTiff = GeoTiffReader.readSingleBand(p)
+    val crs = geoTiff.crs
+    val extent = geoTiff.extent
     val reprojectedExtent = extent.reproject(crs, LatLng)
-    val tile = geoTiff.bands.head.tile.reproject(extent, crs, LatLng).resample(500, 500)
+    val tile = geoTiff.tile.reproject(extent, crs, LatLng).resample(500, 500)
 
     Raster(tile, reprojectedExtent)
   }
