@@ -14,6 +14,7 @@ import geotrellis.engine.op.local._
 import geotrellis.engine.op.zonal.summary._
 import geotrellis.engine.render._
 import geotrellis.engine.stats._
+import geotrellis.spark._
 
 import akka.actor.Actor
 import spray.routing.HttpService
@@ -191,6 +192,27 @@ trait ModelingServiceLogic {
       case head :: tail => head
       case Nil => NODATA
     }
+  }
+
+  def rasterValuesSpark(tileReader: SpatialKey => Tile, metadata: RasterMetaData)(points: Seq[Point]) : Seq[(Point, Int)] = {
+    val keyedPoints: Map[SpatialKey, Seq[Point]] =
+      points
+        .map { p =>
+          // TODO, don't project if the raster is already in WebMercator
+          metadata.mapTransform(p.reproject(WebMercator, metadata.crs)) -> p
+        }
+        .groupBy(_._1)
+        .map { case(k, pairs) => k -> pairs.map(_._2) }
+
+    keyedPoints.map { case(k, points) =>
+      val raster = Raster(tileReader(k), metadata.mapTransform(k))
+      points.map { p =>
+        // TODO, don't project if the raster is already in WebMercator
+        val projP = p.reproject(WebMercator, metadata.crs)
+        val (col, row) = raster.rasterExtent.mapToGrid(projP.x, projP.y)
+        p -> raster.tile.get(col,row)
+      }
+    }.toSeq.flatten
   }
 
   def reprojectPolygons(polys: Seq[Polygon], srid: Int): Seq[Polygon] = {
@@ -442,5 +464,31 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
       }
     }
   }
-}
 
+  // lazy val rasterValueWithSparkRoute = path("gt" / "spark" / "value") {
+  //   post
+  //     formFields('layer, 'coords, 'srid.as[Int]) {
+  //       (layer, coordsParam, srid) =>
+
+  //       val coords = (coordsParam.split(",").grouped(3) collect {
+  //         case Array(id, xParam, yParam) =>
+  //           try {
+  //             val pt = reprojectPoint(
+  //               Point(xParam.toDouble, yParam.toDouble),
+  //               srid
+  //             )
+
+  //             // GET THE VALUE as z
+
+  //             Some((id, pt.x, pt.y, z))
+  //           } catch {
+  //             case ex: NumberFormatException => None
+  //           }
+  //       }).toList
+
+  //       import spray.json.DefaultJsonProtocol._
+  //       complete(s"""{ "coords": ${coords.toJson} }""")
+  //     }
+  //   }
+  // }
+}
