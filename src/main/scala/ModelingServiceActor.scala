@@ -59,14 +59,10 @@ trait ModelingServiceLogic {
   def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
     val conf = sc.hadoopConfiguration
     val localFS = catalogPath.getFileSystem(sc.hadoopConfiguration)
-    val needGenerate = !localFS.exists(catalogPath)
-
     val catalog = HadoopRasterCatalog(catalogPath)
 
-    if (needGenerate) {
-      println(s"test-catalog empty, generating at $catalogPath")
-      // TODO: Load local data into th ecatalog
-    }
+    println(s"Writing data to the catalog")
+    LocalHadoopCatalog.writeTiffToCatalog(catalog, "NLCD_DE-clipped")
 
     catalog
   }
@@ -274,6 +270,7 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
       overlayRoute ~
       histogramRoute ~
       rasterValueRoute ~
+      rasterValueWithSparkRoute ~
       staticRoute
     }
 
@@ -519,7 +516,7 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
 
         import spray.json.DefaultJsonProtocol._
         // TODO: Return points with values
-        complete(s"""{ "coords": "not yet" }""")
+        complete(s"""{ "coords": ${values.toJson} }""")
       }
     }
   }
