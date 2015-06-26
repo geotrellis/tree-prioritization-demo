@@ -15,6 +15,11 @@ import geotrellis.engine.op.zonal.summary._
 import geotrellis.engine.render._
 import geotrellis.engine.stats._
 import geotrellis.spark._
+import geotrellis.spark.io.hadoop._
+import geotrellis.spark.utils._
+
+import org.apache.spark._
+import org.apache.hadoop.fs._
 
 import akka.actor.Actor
 import spray.routing.HttpService
@@ -43,6 +48,28 @@ class ModelingServiceActor extends Actor with ModelingService {
 
 trait ModelingServiceLogic {
   import ModelingTypes._
+
+  val DEFAULT_ZOOM = 0
+
+  def catalogPath(implicit sc: SparkContext): Path = {
+    val localFS = new Path(System.getProperty("java.io.tmpdir")).getFileSystem(sc.hadoopConfiguration)
+    new Path(localFS.getWorkingDirectory, "data/catalog")
+  }
+
+  def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
+    val conf = sc.hadoopConfiguration
+    val localFS = catalogPath.getFileSystem(sc.hadoopConfiguration)
+    val needGenerate = !localFS.exists(catalogPath)
+
+    val catalog = HadoopRasterCatalog(catalogPath)
+
+    if (needGenerate) {
+      println(s"test-catalog empty, generating at $catalogPath")
+      // TODO: Load local data into th ecatalog
+    }
+
+    catalog
+  }
 
   def createRasterSource(layer: String) =
     RasterSource(layer)
@@ -236,6 +263,8 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
   import ModelingTypes._
 
   implicit def executionContext = actorRefFactory.dispatcher
+
+  implicit val sparkContext = SparkUtils.createLocalSparkContext("local[8]", "Local Context", new SparkConf())
 
   lazy val serviceRoute =
     handleExceptions(exceptionHandler) {
@@ -465,30 +494,33 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
     }
   }
 
-  // lazy val rasterValueWithSparkRoute = path("gt" / "spark" / "value") {
-  //   post
-  //     formFields('layer, 'coords, 'srid.as[Int]) {
-  //       (layer, coordsParam, srid) =>
+  lazy val rasterValueWithSparkRoute = path("gt" / "spark" / "value") {
+    post {
+      formFields('layer, 'coords, 'srid.as[Int]) {
+        (layer, coordsParam, srid) =>
 
-  //       val coords = (coordsParam.split(",").grouped(3) collect {
-  //         case Array(id, xParam, yParam) =>
-  //           try {
-  //             val pt = reprojectPoint(
-  //               Point(xParam.toDouble, yParam.toDouble),
-  //               srid
-  //             )
+        val points = coordsParam.split(",").grouped(3).map {
+          // TODO: Preserve ids through the processing
+          case Array(id, xParam, yParam) =>
+            try {
+              val pt = reprojectPoint(
+                Point(xParam.toDouble, yParam.toDouble),
+                srid
+              )
+              Some(pt)
+            } catch {
+              case ex: NumberFormatException => None
+            }
+        }.toList.flatten
 
-  //             // GET THE VALUE as z
+        val layerId = (layer, DEFAULT_ZOOM)
 
-  //             Some((id, pt.x, pt.y, z))
-  //           } catch {
-  //             case ex: NumberFormatException => None
-  //           }
-  //       }).toList
+        val values = rasterValuesSpark(catalog.tileReader[SpatialKey](layerId), catalog.getLayerMetadata(layerId).rasterMetaData)(points)
 
-  //       import spray.json.DefaultJsonProtocol._
-  //       complete(s"""{ "coords": ${coords.toJson} }""")
-  //     }
-  //   }
-  // }
+        import spray.json.DefaultJsonProtocol._
+        // TODO: Return points with values
+        complete(s"""{ "coords": "not yet" }""")
+      }
+    }
+  }
 }
