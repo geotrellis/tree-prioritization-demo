@@ -37,15 +37,8 @@ object LocalHadoopCatalog {
 
   def makeRDD(p: String)(implicit sc: SparkContext): RasterRDD[SpatialKey] = {
     val Raster(tile, extent) = getRaster(p)
-
     createRasterRDD(tile, extent)
   }
-
-  def delawareNLCD(implicit sc: SparkContext): RasterRDD[SpatialKey] =
-    makeRDD(s"$dataPath/NLCD_DE-clipped.tif")
-
-  def delawareSoil(implicit sc: SparkContext): RasterRDD[SpatialKey] =
-    makeRDD(s"$dataPath/gSSURGO_DE_10m1-clipped.tif")
 
   def createRasterRDD(
     tile: Tile,
