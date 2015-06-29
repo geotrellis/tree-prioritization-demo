@@ -17,6 +17,7 @@ import geotrellis.engine.stats._
 import geotrellis.spark._
 import geotrellis.spark.io.hadoop._
 import geotrellis.spark.utils._
+import geotrellis.spark.op.zonal.summary._
 
 import org.apache.spark._
 import org.apache.hadoop.fs._
@@ -201,6 +202,21 @@ trait ModelingServiceLogic {
     }
   }
 
+  def histogramSpark(rdd: RasterRDD[SpatialKey], polyMask: Seq[Polygon]): Histogram = {
+    if (polyMask.size > 0) {
+      val histograms: Seq[Histogram] = polyMask map {
+        p => {
+          println(s"POLYGON: $p")
+          rdd.zonalHistogram(p)
+        }
+      }
+      println(s"HISTOGRAMS: $histograms")
+      FastMapHistogram.fromHistograms(histograms)
+    } else {
+      null
+    }
+  }
+
   /** Return raster value at a certain point. */
   def rasterValue(model: RasterSource, pt: Point): Int = {
     model.mapWithExtent { (tile, extent) =>
@@ -269,6 +285,7 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
       breaksRoute ~
       overlayRoute ~
       histogramRoute ~
+      histogramWithSparkRoute ~
       rasterValueRoute ~
       rasterValueWithSparkRoute ~
       staticRoute
@@ -459,6 +476,46 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
             case Error(message, trace) =>
               failWith(new RuntimeException(message))
           }
+        }
+      }
+    }
+  }
+
+  lazy val histogramWithSparkRoute = path("gt" / "spark"/ "histogram") {
+    post {
+      formFields('layer,
+                 'srid.as[Int],
+                 'polyMask ? "") {
+        (layer, srid, polyMaskParam) => {
+          val start = System.currentTimeMillis()
+          val layerId = (layer, DEFAULT_ZOOM)
+          val metadata: RasterMetaData = catalog.getLayerMetadata(layerId).rasterMetaData
+
+          // TODO: dont double reproject
+          val webMPolys = reprojectPolygons(
+            parsePolyMaskParam(polyMaskParam),
+            srid
+          )
+          val polys = webMPolys map { p => p.reproject(WebMercator, metadata.crs) }
+
+          // TODO expand extent to include multiple polygons
+          val polygonsExtent = polys.head.envelope
+
+          println(s"POLYGONSEXTENT: $polygonsExtent")
+
+          val baseQuery = catalog.query[SpatialKey]((layer, DEFAULT_ZOOM))
+          val intersection = baseQuery.where(Intersects(polygonsExtent))
+          val rdd = intersection.toRDD
+
+          val result = histogramSpark(rdd, polys)
+          val elapsedTotal = System.currentTimeMillis - start
+          val histogram = result.toJSON
+          val data =
+            s"""{
+                  "elapsed": "$elapsedTotal",
+                  "histogram": $histogram
+                    }"""
+          complete(data)
         }
       }
     }
