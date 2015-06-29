@@ -217,23 +217,23 @@ trait ModelingServiceLogic {
     }
   }
 
-  def rasterValuesSpark(tileReader: SpatialKey => Tile, metadata: RasterMetaData)(points: Seq[Point]) : Seq[(Point, Int)] = {
-    val keyedPoints: Map[SpatialKey, Seq[Point]] =
+  def rasterValuesSpark(tileReader: SpatialKey => Tile, metadata: RasterMetaData)(points: Seq[(String, Point)]) : Seq[(String, Point, Int)] = {
+    val keyedPoints: Map[SpatialKey, Seq[(String, Point)]] =
       points
-        .map { p =>
+        .map { case(id, p) =>
           // TODO, don't project if the raster is already in WebMercator
-          metadata.mapTransform(p.reproject(WebMercator, metadata.crs)) -> p
+          metadata.mapTransform(p.reproject(WebMercator, metadata.crs)) -> (id, p)
         }
         .groupBy(_._1)
         .map { case(k, pairs) => k -> pairs.map(_._2) }
 
     keyedPoints.map { case(k, points) =>
       val raster = Raster(tileReader(k), metadata.mapTransform(k))
-      points.map { p =>
+      points.map { case(id, p) =>
         // TODO, don't project if the raster is already in WebMercator
         val projP = p.reproject(WebMercator, metadata.crs)
         val (col, row) = raster.rasterExtent.mapToGrid(projP.x, projP.y)
-        p -> raster.tile.get(col,row)
+        (id, p, raster.tile.get(col,row))
       }
     }.toSeq.flatten
   }
@@ -504,7 +504,7 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
                 Point(xParam.toDouble, yParam.toDouble),
                 srid
               )
-              Some(pt)
+              Some((id, pt))
             } catch {
               case ex: NumberFormatException => None
             }
