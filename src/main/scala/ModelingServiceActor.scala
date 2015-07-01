@@ -18,6 +18,8 @@ import geotrellis.spark._
 import geotrellis.spark.io.hadoop._
 import geotrellis.spark.utils._
 import geotrellis.spark.op.zonal.summary._
+import geotrellis.spark.op.local._
+import geotrellis.spark.op.stats._
 
 import org.apache.spark._
 import org.apache.hadoop.fs._
@@ -115,12 +117,38 @@ trait ModelingServiceLogic {
     }
   }
 
+  def parseLayerMaskParamSpark(implicit sc:SparkContext,
+                               layerMask: Option[LayerMaskType],
+                               rasterExtent: RasterExtent): Iterable[RasterRDD[SpatialKey]] = {
+    layerMask match {
+      case Some(masks: LayerMaskType) =>
+        masks map { case (layerName, values) =>
+          catalog.query[SpatialKey]((layerName, DEFAULT_ZOOM))
+          .where(Intersects(rasterExtent.extent))
+          .toRDD
+          .localMap { z =>
+            if (values contains z) z
+            else NODATA
+          }
+
+        }
+      case None =>
+        Seq[RasterRDD[SpatialKey]]()
+    }
+  }
+
   /** Combine multiple polygons into a single mask raster. */
   def polyMask(polyMasks: Iterable[Polygon])(model: RasterSource): RasterSource = {
     if (polyMasks.size > 0)
       model.mask(polyMasks)
     else
       model
+  }
+
+  def polyMaskSpark(polyMasks: Iterable[Polygon])(model: RasterRDD[SpatialKey]): RasterRDD[SpatialKey] = {
+    // TODO: Pull in an updated Geotrellis when this is complete and merged
+    // https://github.com/zifeo/geotrellis/commit/d63608cb7d77c0358a5dd8118f6289d6d9366799
+    model
   }
 
   /** Combine multiple rasters into a single raster.
@@ -140,8 +168,34 @@ trait ModelingServiceLogic {
     }
   }
 
+  def layerMaskSpark(layerMasks: Iterable[RasterRDD[SpatialKey]])(model: RasterRDD[SpatialKey]): RasterRDD[SpatialKey] = {
+    if (layerMasks.size > 0) {
+      layerMasks.foldLeft(model) { (rdd, mask) =>
+        rdd.combineTiles(mask) { (rddTile, maskTile) =>
+          rddTile.combine(maskTile) { (z, maskValue) =>
+            if (isData(maskValue)) z
+            else NODATA
+          }
+        }
+      }
+    } else {
+      model
+    }
+  }
+
   /** Filter all values from `model` that are less than `threshold`. */
   def thresholdMask(threshold: Int)(model: RasterSource): RasterSource = {
+    if (threshold > NODATA) {
+      model.localMap { z =>
+        if (z >= threshold) z
+        else NODATA
+      }
+    } else {
+      model
+    }
+  }
+
+  def thresholdMaskSpark(threshold: Int)(model: RasterRDD[SpatialKey]): RasterRDD[SpatialKey] = {
     if (threshold > NODATA) {
       model.localMap { z =>
         if (z >= threshold) z
@@ -156,6 +210,13 @@ trait ModelingServiceLogic {
   def applyMasks(model: RasterSource, masks: (RasterSource) => RasterSource*) = {
     masks.foldLeft(model) { (rs, mask) =>
       mask(rs)
+    }
+  }
+
+  /** Filter model by 1 or more masks. */
+  def applyMasksSpark(model: RasterRDD[SpatialKey], masks: (RasterRDD[SpatialKey]) => RasterRDD[SpatialKey]*) = {
+    masks.foldLeft(model) { (rdd, mask) =>
+      mask(rdd)
     }
   }
 
@@ -175,8 +236,26 @@ trait ModelingServiceLogic {
       .localAdd
   }
 
+  def weightedOverlaySpark(implicit sc: SparkContext,
+                           layers:Seq[String],
+                           weights:Seq[Int],
+                           bounds:Extent): RasterRDD[SpatialKey] = {
+    layers
+      .zip(weights)
+      .map { case (layer, weight) =>
+        val base = catalog.query[SpatialKey]((layer, DEFAULT_ZOOM))
+        val intersected = base.where(Intersects(bounds))
+        val rdd = intersected.toRDD
+        rdd.convert(TypeByte).localMultiply(weight)
+      }
+      .localAdd
+  }
+
   /** Return a class breaks operation for `model`. */
   def getBreaks(model: RasterSource, numBreaks: Int) = {
+   model.classBreaks(numBreaks)
+  }
+  def getBreaksSpark(model: RasterRDD[SpatialKey], numBreaks: Int) = {
    model.classBreaks(numBreaks)
   }
 
@@ -187,6 +266,40 @@ trait ModelingServiceLogic {
       cr.interpolate(breaks.length)
     }
     model.renderPng(ramp.toArray, breaks.toArray)
+  }
+
+  /*
+
+I asked Eugene about what replaced RasterSource.renderPng when working
+with Spark. He gave some option
+
+1. It’s a TMS service and we have tiles pyramided at all zoom
+levels. At which point you’re not working with RDDs, you’re just
+pulling them out using tileReader and doing normal raster tile
+operations.
+
+2. It’s a WMS service and you’re doing something like
+`rdd.stitch.crop(extent)` stitch will turn an RDD into a single tile
+and then you need to crop it to your exact extent since the tile
+boundaries may not have lined up.
+
+3. 2 is kind of wasteful for many parallel requests for very small
+areas, so you actually do your calculation for a larger area, as a
+buffer, then buffer results (somewhere) and query them by extent and
+again stitch.
+
+Ultimately, we want option 1; pyramid our source rasters, pull tiles
+out with the tileReader, and use "regular" raster processing and
+rendering. I am implementing the "stitch" version until we have
+pyramided data sources available.
+
+   */
+  def renderTileSpark(model: RasterRDD[SpatialKey], breaks: Seq[Int], colorRamp: String): Png = {
+    val ramp = {
+      val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
+      cr.interpolate(breaks.length)
+    }
+    model.stitch.renderPng(ramp.toArray, breaks.toArray)
   }
 
   /** Return raster value distribution for `model`. */
@@ -283,7 +396,9 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
       indexRoute ~
       colorsRoute ~
       breaksRoute ~
+      breaksWithSparkRoute ~
       overlayRoute ~
+      overlayWithSparkRoute ~
       histogramRoute ~
       histogramWithSparkRoute ~
       rasterValueRoute ~
@@ -379,6 +494,61 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
     }
   }
 
+  lazy val breaksWithSparkRoute = path("gt" / "spark" / "breaks") {
+    post {
+      formFields('bbox,
+                 'layers,
+                 'weights,
+                 'numBreaks.as[Int],
+                 'srid.as[Int],
+                 'threshold.as[Int] ? NODATA,
+                 'polyMask ? "",
+                 'layerMask ? "") {
+        (bbox, layersParam, weightsParam, numBreaks, srid, threshold,
+            polyMaskParam, layerMaskParam) => {
+          val extent = Extent.fromString(bbox)
+          // TODO: Dynamic breaks based on configurable breaks resolution.
+          val rasterExtent = RasterExtent(extent, 256, 256)
+
+          val layers = layersParam.split(",")
+          val weights = weightsParam.split(",").map(_.toInt)
+
+          val parsedLayerMask = try {
+            import spray.json.DefaultJsonProtocol._
+            Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
+          } catch {
+            case ex: ParsingException =>
+              if (!layerMaskParam.isEmpty)
+                ex.printStackTrace(Console.err)
+              None
+          }
+
+          val polys = reprojectPolygons(
+            parsePolyMaskParam(polyMaskParam),
+            srid
+          )
+
+          val unmasked = weightedOverlaySpark(implicitly, layers, weights, rasterExtent.extent)
+          val model = applyMasksSpark(
+            unmasked,
+            polyMaskSpark(polys),
+            layerMaskSpark(parseLayerMaskParamSpark(implicitly, parsedLayerMask, rasterExtent)),
+            thresholdMaskSpark(threshold)
+          )
+
+          val breaks = getBreaksSpark(model, numBreaks)
+          if (breaks.size > 0 && breaks(0) == NODATA) {
+            failWith(new ModelingException("Unable to calculate breaks (NODATA)."))
+          } else {
+            val breaksArray = breaks.mkString("[", ",", "]")
+            val json = s"""{ "classBreaks" : $breaksArray }"""
+            complete(json)
+          }
+        }
+      }
+    }
+  }
+
   lazy val overlayRoute = path("gt" / "wo") {
     post {
       formFields('service,
@@ -443,6 +613,69 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
       }
     }
   }
+
+  lazy val overlayWithSparkRoute = path("gt" / "spark" / "wo") {
+    post {
+      formFields('service,
+                 'request,
+                 'version,
+                 'format,
+                 'bbox,
+                 'height.as[Int],
+                 'width.as[Int],
+                 'layers,
+                 'weights,
+                 'palette ? "ff0000,ffff00,00ff00,0000ff",
+                 'breaks,
+                 'srid.as[Int],
+                 'colorRamp ? "blue-to-red",
+                 'threshold.as[Int] ? NODATA,
+                 'polyMask ? "",
+                 'layerMask ? "") {
+        (_, _, _, _, bbox, cols, rows, layersString, weightsString,
+            palette, breaksString, srid, colorRamp, threshold,
+            polyMaskParam, layerMaskParam) => {
+          val extent = Extent.fromString(bbox)
+          val rasterExtent = RasterExtent(extent, cols, rows)
+
+          val layers = layersString.split(",")
+
+          val weights = weightsString.split(",").map(_.toInt)
+          val breaks = breaksString.split(",").map(_.toInt)
+
+          val parsedLayerMask = try {
+            import spray.json.DefaultJsonProtocol._
+            Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
+          } catch {
+            case ex: ParsingException =>
+              if (!layerMaskParam.isEmpty)
+                ex.printStackTrace(Console.err)
+              None
+          }
+
+          val polys = reprojectPolygons(
+            parsePolyMaskParam(polyMaskParam),
+            srid
+          )
+
+          val unmasked = weightedOverlaySpark(implicitly, layers, weights, rasterExtent.extent)
+          val model = applyMasksSpark(
+            unmasked,
+            polyMaskSpark(polys),
+            layerMaskSpark(parseLayerMaskParamSpark(implicitly, parsedLayerMask, rasterExtent)),
+            thresholdMaskSpark(threshold)
+          )
+
+          val tile = renderTileSpark(model, breaks, colorRamp)
+          respondWithMediaType(MediaTypes.`image/png`) {
+            complete(tile.bytes)
+          }
+        }
+      }
+    }
+  }
+
+
 
   lazy val histogramRoute = path("gt" / "histogram") {
     post {
