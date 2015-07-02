@@ -53,10 +53,11 @@ trait ModelingServiceLogic {
   import ModelingTypes._
 
   val DEFAULT_ZOOM = 0
+  val DATA_PATH = "data/catalog"
 
   def catalogPath(implicit sc: SparkContext): Path = {
     val localFS = new Path(System.getProperty("java.io.tmpdir")).getFileSystem(sc.hadoopConfiguration)
-    new Path(localFS.getWorkingDirectory, "data/catalog")
+    new Path(localFS.getWorkingDirectory, DATA_PATH)
   }
 
   def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
@@ -65,7 +66,7 @@ trait ModelingServiceLogic {
     val catalog = HadoopRasterCatalog(catalogPath)
 
     println(s"Writing data to the catalog")
-    LocalHadoopCatalog.writeTiffToCatalog(catalog, "NLCD_DE-clipped")
+    LocalHadoopCatalog.writeTiffsToCatalog(catalog, DATA_PATH)
 
     catalog
   }
