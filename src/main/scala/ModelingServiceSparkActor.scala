@@ -35,6 +35,32 @@ import spray.json.JsonParser.ParsingException
 
 import com.vividsolutions.jts.{ geom => jts }
 
+object ModelingServiceSparkActor {
+
+  val DEFAULT_ZOOM = 0
+  val DATA_PATH = "data/catalog"
+
+  def catalogPath(implicit sc: SparkContext): Path = {
+    val localFS = new Path(System.getProperty("java.io.tmpdir")).getFileSystem(sc.hadoopConfiguration)
+    new Path(localFS.getWorkingDirectory, DATA_PATH +  "/hadoop")
+  }
+
+  def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
+    val conf = sc.hadoopConfiguration
+    val localFS = catalogPath.getFileSystem(sc.hadoopConfiguration)
+    val doesNotExist = !localFS.exists(catalogPath)
+    val catalog = HadoopRasterCatalog(catalogPath)
+
+    //// TODO: If I do not run this block on every request, there is a
+    //// com.esotericsoftware.kryo.KryoException: Buffer underflow.
+    // if (!doesNotExist) {
+      println(s"Writing data to the catalog")
+      LocalHadoopCatalog.writeTiffsToCatalog(catalog, DATA_PATH)
+    // }
+
+    catalog
+  }
+}
 
 class ModelingServiceSparkActor extends Actor with ModelingServiceSpark {
   override def actorRefFactory = context
@@ -45,24 +71,19 @@ class ModelingServiceSparkActor extends Actor with ModelingServiceSpark {
 trait ModelingServiceSparkLogic {
   import ModelingTypes._
 
-  val DEFAULT_ZOOM = 0
-  val DATA_PATH = "data/catalog"
+  // def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
+  //   val conf = sc.hadoopConfiguration
+  //   val localFS = catalogPath.getFileSystem(sc.hadoopConfiguration)
+  //   val doesNotExist = localFS.exists(catalogPath)
+  //   val catalog = HadoopRasterCatalog(catalogPath)
 
-  def catalogPath(implicit sc: SparkContext): Path = {
-    val localFS = new Path(System.getProperty("java.io.tmpdir")).getFileSystem(sc.hadoopConfiguration)
-    new Path(localFS.getWorkingDirectory, DATA_PATH)
-  }
+  //   if (doesNotExist) {
+  //     println(s"Writing data to the catalog")
+  //     LocalHadoopCatalog.writeTiffsToCatalog(catalog, DATA_PATH)
+  //   }
 
-  def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
-    val conf = sc.hadoopConfiguration
-    val localFS = catalogPath.getFileSystem(sc.hadoopConfiguration)
-    val catalog = HadoopRasterCatalog(catalogPath)
-
-    println(s"Writing data to the catalog")
-    LocalHadoopCatalog.writeTiffsToCatalog(catalog, DATA_PATH)
-
-    catalog
-  }
+  //   catalog
+  // }
 
   def createRasterSource(layer: String) =
     RasterSource(layer)
@@ -102,7 +123,7 @@ trait ModelingServiceSparkLogic {
     layerMask match {
       case Some(masks: LayerMaskType) =>
         masks map { case (layerName, values) =>
-          catalog.query[SpatialKey]((layerName, DEFAULT_ZOOM))
+          ModelingServiceSparkActor.catalog.query[SpatialKey]((layerName, ModelingServiceSparkActor.DEFAULT_ZOOM))
           .where(Intersects(rasterExtent.extent))
           .toRDD
           .localMap { z =>
@@ -185,7 +206,7 @@ trait ModelingServiceSparkLogic {
     layers
       .zip(weights)
       .map { case (layer, weight) =>
-        val base = catalog.query[SpatialKey]((layer, DEFAULT_ZOOM))
+        val base = ModelingServiceSparkActor.catalog.query[SpatialKey]((layer, ModelingServiceSparkActor.DEFAULT_ZOOM))
         val intersected = base.where(Intersects(bounds))
         val rdd = intersected.toRDD
         rdd.convert(TypeByte).localMultiply(weight)
@@ -440,8 +461,8 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
                  'polyMask ? "") {
         (layer, srid, polyMaskParam) => {
           val start = System.currentTimeMillis()
-          val layerId = (layer, DEFAULT_ZOOM)
-          val metadata: RasterMetaData = catalog.getLayerMetadata(layerId).rasterMetaData
+          val layerId = (layer, ModelingServiceSparkActor.DEFAULT_ZOOM)
+          val metadata: RasterMetaData = ModelingServiceSparkActor.catalog.getLayerMetadata(layerId).rasterMetaData
 
           // TODO: dont double reproject
           val webMPolys = reprojectPolygons(
@@ -455,7 +476,7 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
 
           println(s"POLYGONSEXTENT: $polygonsExtent")
 
-          val baseQuery = catalog.query[SpatialKey]((layer, DEFAULT_ZOOM))
+          val baseQuery = ModelingServiceSparkActor.catalog.query[SpatialKey]((layer, ModelingServiceSparkActor.DEFAULT_ZOOM))
           val intersection = baseQuery.where(Intersects(polygonsExtent))
           val rdd = intersection.toRDD
 
@@ -492,9 +513,9 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
             }
         }.toList.flatten
 
-        val layerId = (layer, DEFAULT_ZOOM)
+        val layerId = (layer, ModelingServiceSparkActor.DEFAULT_ZOOM)
 
-        val values = rasterValues(catalog.tileReader[SpatialKey](layerId), catalog.getLayerMetadata(layerId).rasterMetaData)(points)
+        val values = rasterValues(ModelingServiceSparkActor.catalog.tileReader[SpatialKey](layerId), ModelingServiceSparkActor.catalog.getLayerMetadata(layerId).rasterMetaData)(points)
 
         import spray.json.DefaultJsonProtocol._
         // TODO: Return points with values
