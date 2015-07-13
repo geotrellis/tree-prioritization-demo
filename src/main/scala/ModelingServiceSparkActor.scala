@@ -9,13 +9,9 @@ import geotrellis.vector._
 import geotrellis.vector.io.json._
 import geotrellis.vector.reproject._
 import geotrellis.proj4._
-import geotrellis.engine._
-import geotrellis.engine.op.local._
-import geotrellis.engine.op.zonal.summary._
-import geotrellis.engine.render._
-import geotrellis.engine.stats._
 import geotrellis.spark._
 import geotrellis.spark.io.hadoop._
+import geotrellis.spark.io.s3._
 import geotrellis.spark.utils._
 import geotrellis.spark.op.zonal.summary._
 import geotrellis.spark.op.local._
@@ -37,7 +33,7 @@ import com.vividsolutions.jts.{ geom => jts }
 
 object ModelingServiceSparkActor {
 
-  val DEFAULT_ZOOM = 0
+  val DEFAULT_ZOOM = 13
   val DATA_PATH = "data/catalog"
 
   def catalogPath(implicit sc: SparkContext): Path = {
@@ -45,21 +41,26 @@ object ModelingServiceSparkActor {
     new Path(localFS.getWorkingDirectory, DATA_PATH +  "/hadoop")
   }
 
-  def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
-    val conf = sc.hadoopConfiguration
-    val localFS = catalogPath.getFileSystem(sc.hadoopConfiguration)
-    val doesNotExist = !localFS.exists(catalogPath)
-    val catalog = HadoopRasterCatalog(catalogPath)
 
-    //// TODO: If I do not run this block on every request, there is a
-    //// com.esotericsoftware.kryo.KryoException: Buffer underflow.
+  def catalog(implicit sc: SparkContext): S3RasterCatalog = {
+    S3RasterCatalog("com.azavea.datahub", "catalog")
+  }
+
+  // def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
+    // val conf = sc.hadoopConfiguration
+    // val localFS = catalogPath.getFileSystem(sc.hadoopConfiguration)
+    // val doesNotExist = !localFS.exists(catalogPath)
+    // val catalog = HadoopRasterCatalog(catalogPath)
+
+    // //TODO: If I do not run this block on every request, there is a
+    // //com.esotericsoftware.kryo.KryoException: Buffer underflow.
     // if (!doesNotExist) {
-      println(s"Writing data to the catalog")
-      LocalHadoopCatalog.writeTiffsToCatalog(catalog, DATA_PATH)
+      // println(s"Writing data to the catalog")
+      // LocalHadoopCatalog.writeTiffsToCatalog(catalog, DATA_PATH)
     // }
 
-    catalog
-  }
+    // catalog
+  // }
 }
 
 class ModelingServiceSparkActor extends Actor with ModelingServiceSpark {
@@ -85,11 +86,13 @@ trait ModelingServiceSparkLogic {
   //   catalog
   // }
 
+  /*
   def createRasterSource(layer: String) =
     RasterSource(layer)
 
   def createRasterSource(layer: String, extent: RasterExtent) =
     RasterSource(layer, extent)
+   */
 
   /** Convert GeoJson string to Polygon sequence.
     * The `polyMask` parameter expects a single GeoJson blob,
@@ -144,6 +147,7 @@ trait ModelingServiceSparkLogic {
     model
   }
 
+  /*
   def layerMask(layerMasks: Iterable[RasterSource])(model: RasterSource): RasterSource = {
     if (layerMasks.size > 0) {
       layerMasks.foldLeft(model) { (rs, mask) =>
@@ -156,7 +160,7 @@ trait ModelingServiceSparkLogic {
       model
     }
   }
-
+   */
 
   /** Combine multiple rasters into a single raster.
     * The resulting raster will contain values from `model` only at
@@ -464,6 +468,11 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
           val layerId = (layer, ModelingServiceSparkActor.DEFAULT_ZOOM)
           val metadata: RasterMetaData = ModelingServiceSparkActor.catalog.getLayerMetadata(layerId).rasterMetaData
 
+
+          // val layerMetaData = ModelingServiceSparkActor.catalog.attributeStore.read[S3LayerMetaData](layerId, "metadata")
+          // val metadata = layerMetaData.rasterMetaData
+
+
           // TODO: dont double reproject
           val webMPolys = reprojectPolygons(
             parsePolyMaskParam(polyMaskParam),
@@ -499,6 +508,13 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
       formFields('layer, 'coords, 'srid.as[Int]) {
         (layer, coordsParam, srid) =>
 
+        val layerId = (layer, ModelingServiceSparkActor.DEFAULT_ZOOM)
+        println(s"LAYERID:$layerId")
+        val rasterMetaData = ModelingServiceSparkActor.catalog.getLayerMetadata(layerId).rasterMetaData
+        println(s"RASTERMETADATA:$rasterMetaData")
+        val tileReader = ModelingServiceSparkActor.catalog.tileReader[SpatialKey](layerId)
+        println(s"TILEREADER:$tileReader")
+
         val points = coordsParam.split(",").grouped(3).map {
           // TODO: Preserve ids through the processing
           case Array(id, xParam, yParam) =>
@@ -513,9 +529,7 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
             }
         }.toList.flatten
 
-        val layerId = (layer, ModelingServiceSparkActor.DEFAULT_ZOOM)
-
-        val values = rasterValues(ModelingServiceSparkActor.catalog.tileReader[SpatialKey](layerId), ModelingServiceSparkActor.catalog.getLayerMetadata(layerId).rasterMetaData)(points)
+        val values = rasterValues(tileReader, rasterMetaData)(points)
 
         import spray.json.DefaultJsonProtocol._
         // TODO: Return points with values
