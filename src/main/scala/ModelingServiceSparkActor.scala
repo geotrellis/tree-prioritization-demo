@@ -33,7 +33,7 @@ import com.vividsolutions.jts.{ geom => jts }
 
 object ModelingServiceSparkActor {
 
-  val DEFAULT_ZOOM = 13
+  val DEFAULT_ZOOM = 0
   val DATA_PATH = "data/catalog"
 
   def catalogPath(implicit sc: SparkContext): Path = {
@@ -41,26 +41,25 @@ object ModelingServiceSparkActor {
     new Path(localFS.getWorkingDirectory, DATA_PATH +  "/hadoop")
   }
 
-
+ /*
   def catalog(implicit sc: SparkContext): S3RasterCatalog = {
     S3RasterCatalog("com.azavea.datahub", "catalog")
   }
+ */
 
-  // def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
-    // val conf = sc.hadoopConfiguration
-    // val localFS = catalogPath.getFileSystem(sc.hadoopConfiguration)
-    // val doesNotExist = !localFS.exists(catalogPath)
-    // val catalog = HadoopRasterCatalog(catalogPath)
+  def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
+    val conf = sc.hadoopConfiguration
+    val localFS = catalogPath.getFileSystem(sc.hadoopConfiguration)
+    val doesNotExist = !localFS.exists(catalogPath)
+    val catalog = HadoopRasterCatalog(catalogPath)
 
-    // //TODO: If I do not run this block on every request, there is a
-    // //com.esotericsoftware.kryo.KryoException: Buffer underflow.
-    // if (!doesNotExist) {
-      // println(s"Writing data to the catalog")
-      // LocalHadoopCatalog.writeTiffsToCatalog(catalog, DATA_PATH)
-    // }
+    if (doesNotExist) {
+      println(s"Writing data to the catalog")
+      LocalHadoopCatalog.writeTiffsToCatalog(catalog, DATA_PATH)
+    }
+    catalog
+  }
 
-    // catalog
-  // }
 }
 
 class ModelingServiceSparkActor extends Actor with ModelingServiceSpark {
