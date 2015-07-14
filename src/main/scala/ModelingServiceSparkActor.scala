@@ -72,28 +72,6 @@ class ModelingServiceSparkActor extends Actor with ModelingServiceSpark {
 trait ModelingServiceSparkLogic {
   import ModelingTypes._
 
-  // def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
-  //   val conf = sc.hadoopConfiguration
-  //   val localFS = catalogPath.getFileSystem(sc.hadoopConfiguration)
-  //   val doesNotExist = localFS.exists(catalogPath)
-  //   val catalog = HadoopRasterCatalog(catalogPath)
-
-  //   if (doesNotExist) {
-  //     println(s"Writing data to the catalog")
-  //     LocalHadoopCatalog.writeTiffsToCatalog(catalog, DATA_PATH)
-  //   }
-
-  //   catalog
-  // }
-
-  /*
-  def createRasterSource(layer: String) =
-    RasterSource(layer)
-
-  def createRasterSource(layer: String, extent: RasterExtent) =
-    RasterSource(layer, extent)
-   */
-
   /** Convert GeoJson string to Polygon sequence.
     * The `polyMask` parameter expects a single GeoJson blob,
     * so this should never return a sequence with more than 1 element.
@@ -146,21 +124,6 @@ trait ModelingServiceSparkLogic {
     // https://github.com/zifeo/geotrellis/commit/d63608cb7d77c0358a5dd8118f6289d6d9366799
     model
   }
-
-  /*
-  def layerMask(layerMasks: Iterable[RasterSource])(model: RasterSource): RasterSource = {
-    if (layerMasks.size > 0) {
-      layerMasks.foldLeft(model) { (rs, mask) =>
-        rs.localCombine(mask) { (z, maskValue) =>
-          if (isData(maskValue)) z
-          else NODATA
-        }
-      }
-    } else {
-      model
-    }
-  }
-   */
 
   /** Combine multiple rasters into a single raster.
     * The resulting raster will contain values from `model` only at
