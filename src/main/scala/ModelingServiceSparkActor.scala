@@ -294,32 +294,6 @@ trait ModelingServiceSparkLogic {
    model.classBreaks(numBreaks)
   }
 
-  /*
-
-I asked Eugene about what replaced RasterSource.renderPng when working
-with Spark. He gave some option
-
-1. It’s a TMS service and we have tiles pyramided at all zoom
-levels. At which point you’re not working with RDDs, you’re just
-pulling them out using tileReader and doing normal raster tile
-operations.
-
-2. It’s a WMS service and you’re doing something like
-`rdd.stitch.crop(extent)` stitch will turn an RDD into a single tile
-and then you need to crop it to your exact extent since the tile
-boundaries may not have lined up.
-
-3. 2 is kind of wasteful for many parallel requests for very small
-areas, so you actually do your calculation for a larger area, as a
-buffer, then buffer results (somewhere) and query them by extent and
-again stitch.
-
-Ultimately, we want option 1; pyramid our source rasters, pull tiles
-out with the tileReader, and use "regular" raster processing and
-rendering. I am implementing the "stitch" version until we have
-pyramided data sources available.
-
-   */
   /** Return a render tile as PNG operation for `model`. */
   def renderTile(model: RasterRDD[SpatialKey], breaks: Seq[Int], colorRamp: String): Png = {
     val ramp = {
