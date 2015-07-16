@@ -33,19 +33,21 @@ import com.vividsolutions.jts.{ geom => jts }
 
 object ModelingServiceSparkActor {
 
-  val DEFAULT_ZOOM = 0
+  val DEFAULT_ZOOM = 13
+
+  def catalog(implicit sc: SparkContext): S3RasterCatalog = {
+    S3RasterCatalog("com.azavea.datahub", "catalog")
+  }
+
+/*
+  // LOCAL HADOOP CATALOG
+
   val DATA_PATH = "data/catalog"
 
   def catalogPath(implicit sc: SparkContext): Path = {
     val localFS = new Path(System.getProperty("java.io.tmpdir")).getFileSystem(sc.hadoopConfiguration)
     new Path(localFS.getWorkingDirectory, DATA_PATH +  "/hadoop")
   }
-
- /*
-  def catalog(implicit sc: SparkContext): S3RasterCatalog = {
-    S3RasterCatalog("com.azavea.datahub", "catalog")
-  }
- */
 
   def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
     val conf = sc.hadoopConfiguration
@@ -59,7 +61,7 @@ object ModelingServiceSparkActor {
     }
     catalog
   }
-
+ */
 }
 
 class ModelingServiceSparkActor extends Actor with ModelingServiceSpark {
@@ -180,6 +182,26 @@ trait ModelingServiceSparkLogic {
       .localAdd
   }
 
+  def addTiles(t1: Tile, t2: Tile): Tile = {
+    t1.combine(t2)(_ + _)
+  }
+
+  def weightedOverlayTms(implicit sc: SparkContext,
+                         layers:Seq[String],
+                         weights:Seq[Int],
+                         z:Int,
+                         x:Int,
+                         y:Int): Tile = {
+    layers
+      .zip(weights)
+      .map { case (layer, weight) =>
+        val reader = ModelingServiceSparkActor.catalog.tileReader[SpatialKey]((layer, z))
+        val tile = reader(SpatialKey(x, y))
+        tile.convert(TypeByte).map(_ * weight)
+      }
+      .reduce(addTiles)
+  }
+
   /** Return a class breaks operation for `model`. */
   def getBreaks(model: RasterRDD[SpatialKey], numBreaks: Int) = {
    model.classBreaks(numBreaks)
@@ -218,6 +240,14 @@ pyramided data sources available.
       cr.interpolate(breaks.length)
     }
     model.stitch.renderPng(ramp.toArray, breaks.toArray)
+  }
+
+  def renderTile(tile: Tile, breaks: Seq[Int], colorRamp: String): Png = {
+    val ramp = {
+      val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
+      cr.interpolate(breaks.length)
+    }
+    tile.renderPng(ramp.toArray, breaks.toArray)
   }
 
   /** Return raster value distribution for `model`. */
@@ -287,7 +317,8 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
       breaksRoute ~
       overlayRoute ~
       histogramRoute ~
-      rasterValueRoute
+      rasterValueRoute ~
+      overlayTmsRoute
     }
 
   /** Handle all exceptions that bubble up from `failWith` calls. */
@@ -412,6 +443,51 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
           )
 
           val tile = renderTile(model, breaks, colorRamp)
+          respondWithMediaType(MediaTypes.`image/png`) {
+            complete(tile.bytes)
+          }
+        }
+      }
+    }
+  }
+
+  lazy val overlayTmsRoute = path("gt" / "spark" / "wotms"/ IntNumber / IntNumber / IntNumber ~ ".png" ) { (z, x, y) =>
+    post {
+      formFields('layers,
+                 'weights,
+                 'palette ? "ff0000,ffff00,00ff00,0000ff",
+                 'breaks,
+                 'srid.as[Int],
+                 'colorRamp ? "blue-to-red",
+                 'threshold.as[Int] ? NODATA,
+                 'polyMask ? "",
+                 'layerMask ? "") {
+        (layersString, weightsString,
+         palette, breaksString, srid, colorRamp, threshold,
+         polyMaskParam, layerMaskParam) => {
+          val layers = layersString.split(",")
+
+          val weights = weightsString.split(",").map(_.toInt)
+          val breaks = breaksString.split(",").map(_.toInt)
+
+          val parsedLayerMask = try {
+            import spray.json.DefaultJsonProtocol._
+            Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
+          } catch {
+            case ex: ParsingException =>
+              if (!layerMaskParam.isEmpty)
+                ex.printStackTrace(Console.err)
+              None
+          }
+
+          val polys = reprojectPolygons(
+            parsePolyMaskParam(polyMaskParam),
+            srid
+          )
+
+          val unmasked = weightedOverlayTms(implicitly, layers, weights, z, x, y)
+
+          val tile = renderTile(unmasked, breaks, colorRamp)
           respondWithMediaType(MediaTypes.`image/png`) {
             complete(tile.bytes)
           }
