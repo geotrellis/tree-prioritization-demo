@@ -1,5 +1,7 @@
 package org.opentreemap.modeling
 
+import scala.concurrent._
+
 import geotrellis.raster._
 import geotrellis.raster.histogram._
 import geotrellis.raster.render._
@@ -402,43 +404,48 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
                  'layerMask ? "") {
         (bbox, layersParam, weightsParam, numBreaks, srid, threshold,
             polyMaskParam, layerMaskParam) => {
-          val extent = Extent.fromString(bbox)
-          // TODO: Dynamic breaks based on configurable breaks resolution.
-          val rasterExtent = RasterExtent(extent, 256, 256)
+          respondWithMediaType(MediaTypes.`application/json`) {
+            complete {
+              future {
+                val extent = Extent.fromString(bbox)
+                // TODO: Dynamic breaks based on configurable breaks resolution.
+                val rasterExtent = RasterExtent(extent, 256, 256)
 
-          val layers = layersParam.split(",")
-          val weights = weightsParam.split(",").map(_.toInt)
+                val layers = layersParam.split(",")
+                val weights = weightsParam.split(",").map(_.toInt)
 
-          val parsedLayerMask = try {
-            import spray.json.DefaultJsonProtocol._
-            Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
-          } catch {
-            case ex: ParsingException =>
-              if (!layerMaskParam.isEmpty)
-                ex.printStackTrace(Console.err)
-              None
-          }
+                val parsedLayerMask = try {
+                  import spray.json.DefaultJsonProtocol._
+                  Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
+                } catch {
+                  case ex: ParsingException =>
+                    if (!layerMaskParam.isEmpty)
+                      ex.printStackTrace(Console.err)
+                    None
+                }
 
-          val polys = reprojectPolygons(
-            parsePolyMaskParam(polyMaskParam),
-            srid
-          )
+                val polys = reprojectPolygons(
+                  parsePolyMaskParam(polyMaskParam),
+                  srid
+                )
 
-          val unmasked = weightedOverlay(implicitly, layers, weights, rasterExtent.extent)
-          val model = applyMasks(
-            unmasked,
-            polyMask(polys),
-            layerMask(parseLayerMaskParam(implicitly, parsedLayerMask, rasterExtent)),
-            thresholdMask(threshold)
-          )
+                val unmasked = weightedOverlay(implicitly, layers, weights, rasterExtent.extent)
+                val model = applyMasks(
+                  unmasked,
+                  polyMask(polys),
+                  layerMask(parseLayerMaskParam(implicitly, parsedLayerMask, rasterExtent)),
+                  thresholdMask(threshold)
+                )
 
-          val breaks = getBreaks(model, numBreaks)
-          if (breaks.size > 0 && breaks(0) == NODATA) {
-            failWith(new ModelingException("Unable to calculate breaks (NODATA)."))
-          } else {
-            val breaksArray = breaks.mkString("[", ",", "]")
-            val json = s"""{ "classBreaks" : $breaksArray }"""
-            complete(json)
+                val breaks = getBreaks(model, numBreaks)
+                if (breaks.size > 0 && breaks(0) == NODATA) {
+                  s"""{ "error" : "Unable to calculate breaks (NODATA)."} """ //failWith(new ModelingException("Unable to calculate breaks (NODATA)."))
+                } else {
+                  val breaksArray = breaks.mkString("[", ",", "]")
+                  s"""{ "classBreaks" : $breaksArray }"""
+                }
+              }
+            }
           }
         }
       }
@@ -520,37 +527,41 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
         (layersString, weightsString,
          palette, breaksString, srid, colorRamp, threshold,
          polyMaskParam, layerMaskParam) => {
-          val layers = layersString.split(",")
-
-          val weights = weightsString.split(",").map(_.toInt)
-          val breaks = breaksString.split(",").map(_.toInt)
-
-          val parsedLayerMask = try {
-            import spray.json.DefaultJsonProtocol._
-            Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
-          } catch {
-            case ex: ParsingException =>
-              if (!layerMaskParam.isEmpty)
-                ex.printStackTrace(Console.err)
-              None
-          }
-
-          val polys = reprojectPolygons(
-            parsePolyMaskParam(polyMaskParam),
-            srid
-          )
-
-          val unmasked = weightedOverlayTms(implicitly, layers, weights, z, x, y)
-          val masked = applyTileMasks(
-            unmasked,
-            polyTileMask(polys),
-            layerTileMask(parseLayerTileMaskParam(implicitly, parsedLayerMask, z, x, y)),
-            thresholdTileMask(threshold)
-          )
-
-          val tile = renderTile(masked, breaks, colorRamp)
           respondWithMediaType(MediaTypes.`image/png`) {
-            complete(tile.bytes)
+            complete {
+              future {
+                val layers = layersString.split(",")
+
+                val weights = weightsString.split(",").map(_.toInt)
+                val breaks = breaksString.split(",").map(_.toInt)
+
+                val parsedLayerMask = try {
+                  import spray.json.DefaultJsonProtocol._
+                  Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
+                } catch {
+                  case ex: ParsingException =>
+                    if (!layerMaskParam.isEmpty)
+                      ex.printStackTrace(Console.err)
+                    None
+                }
+
+                val polys = reprojectPolygons(
+                  parsePolyMaskParam(polyMaskParam),
+                  srid
+                )
+
+                val unmasked = weightedOverlayTms(implicitly, layers, weights, z, x, y)
+                val masked = applyTileMasks(
+                  unmasked,
+                  polyTileMask(polys),
+                  layerTileMask(parseLayerTileMaskParam(implicitly, parsedLayerMask, z, x, y)),
+                  thresholdTileMask(threshold)
+                )
+
+                val tile = renderTile(masked, breaks, colorRamp)
+                tile.bytes
+              }
+            }
           }
         }
       }
