@@ -5,6 +5,7 @@ import scala.concurrent._
 import geotrellis.raster._
 import geotrellis.raster.histogram._
 import geotrellis.raster.render._
+import geotrellis.raster.resample._
 import geotrellis.raster.op.stats._
 import geotrellis.services._
 import geotrellis.vector._
@@ -14,6 +15,7 @@ import geotrellis.proj4._
 import geotrellis.spark._
 import geotrellis.spark.io.hadoop._
 import geotrellis.spark.io.s3._
+import geotrellis.spark.tiling._
 import geotrellis.spark.utils._
 import geotrellis.spark.op.zonal.summary._
 import geotrellis.spark.op.local._
@@ -39,6 +41,17 @@ object ModelingServiceSparkActor {
 
   def catalog(implicit sc: SparkContext): S3RasterCatalog = {
     S3RasterCatalog("com.azavea.datahub", "catalog")
+  }
+
+  def metaDatas(implicit sc: SparkContext) = {
+    val attributeStore = catalog.attributeStore
+    val all = attributeStore.readAll[S3LayerMetaData]("metadata")
+    println(all)
+    all
+  }
+
+  def zoomLevelsFor(implicit sc: SparkContext, layerName: String) = {
+    metaDatas.keys.filter(_.name == layerName).map(_.zoom).toSeq
   }
 
 /*
@@ -252,8 +265,25 @@ trait ModelingServiceSparkLogic {
     layers
       .zip(weights)
       .map { case (layer, weight) =>
-        val reader = ModelingServiceSparkActor.catalog.tileReader[SpatialKey]((layer, z))
-        val tile = reader(SpatialKey(x, y))
+        // TODO: Handle layers with different pyramids instead of using
+        // DEFAULT_ZOOM
+        val tile =
+          if (z <= ModelingServiceSparkActor.DEFAULT_ZOOM) {
+            val reader = ModelingServiceSparkActor.catalog.tileReader[SpatialKey]((layer, z))
+            reader(SpatialKey(x, y))
+          } else {
+            val layerId = LayerId(layer, ModelingServiceSparkActor.DEFAULT_ZOOM)
+            val reader = ModelingServiceSparkActor.catalog.tileReader[SpatialKey](layerId)
+            val rmd = ModelingServiceSparkActor.catalog.getLayerMetadata(layerId).rasterMetaData
+            val layoutLevel = ZoomedLayoutScheme().levelFor(z)
+            val mapTransform = MapKeyTransform(rmd.crs, layoutLevel.tileLayout.layoutCols, layoutLevel.tileLayout.layoutRows)
+            val targetExtent = mapTransform(x, y)
+            val gb @ GridBounds(nx, ny, _, _) = rmd.mapTransform(targetExtent)
+            val sourceExtent = rmd.mapTransform(nx, ny)
+
+            val largerTile = reader(SpatialKey(nx, ny))
+            largerTile.resample(sourceExtent, RasterExtent(targetExtent, 256, 256))
+          }
         tile.convert(TypeByte).map(_ * weight)
       }
       .reduce(addTiles)
