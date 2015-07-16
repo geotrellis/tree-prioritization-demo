@@ -101,7 +101,7 @@ object OTMModelingBuild extends Build {
         "io.spray" %% "spray-json" % Version.sprayJson,
         "io.spray" %% "spray-can" % Version.spray,
         "org.scalatest" %% "scalatest" % Version.scalatest % "test",
-        "org.apache.spark" %% "spark-core" % Version.spark,
+        "org.apache.spark" %% "spark-core" % Version.spark % "provided",
         // TODO: SPARK CORE SHOULD BE "provided"
         /*
 
