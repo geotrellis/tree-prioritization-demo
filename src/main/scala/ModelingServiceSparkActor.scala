@@ -365,7 +365,7 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
 
   implicit def executionContext = actorRefFactory.dispatcher
 
-  implicit val sparkContext = SparkUtils.createLocalSparkContext("local[8]", "Local Context", new SparkConf())
+  implicit val sparkContext = SparkUtils.createSparkContext("OTM Modeling Context", new SparkConf())
 
   lazy val serviceRoute =
     handleExceptions(exceptionHandler) {
