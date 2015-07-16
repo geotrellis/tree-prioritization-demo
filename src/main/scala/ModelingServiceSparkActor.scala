@@ -119,11 +119,36 @@ trait ModelingServiceSparkLogic {
     }
   }
 
+  def parseLayerTileMaskParam(implicit sc:SparkContext,
+                              layerMask: Option[LayerMaskType],
+                              z:Int, x:Int, y:Int): Iterable[Tile] = {
+    layerMask match {
+      case Some(masks: LayerMaskType) =>
+        masks map { case (layer, values) =>
+          val reader = ModelingServiceSparkActor.catalog.tileReader[SpatialKey]((layer, z))
+          val tile = reader(SpatialKey(x, y))
+          tile.map { z =>
+            if (values contains z) z
+            else NODATA
+          }
+
+        }
+      case None =>
+        Seq[Tile]()
+    }
+  }
+
   /** Combine multiple polygons into a single mask raster. */
   def polyMask(polyMasks: Iterable[Polygon])(model: RasterRDD[SpatialKey]): RasterRDD[SpatialKey] = {
     // TODO: Pull in an updated Geotrellis when this is complete and merged
     // https://github.com/zifeo/geotrellis/commit/d63608cb7d77c0358a5dd8118f6289d6d9366799
     model
+  }
+
+  def polyTileMask(polyMasks: Iterable[Polygon])(tile: Tile): Tile = {
+    // TODO: Pull in an updated Geotrellis when this is complete and merged
+    // https://github.com/zifeo/geotrellis/commit/d63608cb7d77c0358a5dd8118f6289d6d9366799
+    tile
   }
 
   /** Combine multiple rasters into a single raster.
@@ -145,6 +170,19 @@ trait ModelingServiceSparkLogic {
     }
   }
 
+  def layerTileMask(layerMasks: Iterable[Tile])(tile: Tile): Tile = {
+    if (layerMasks.size > 0) {
+      layerMasks.foldLeft(tile) { (acc, mask) =>
+        acc.combine(mask) { (z, maskValue) =>
+          if (isData(maskValue)) z
+          else NODATA
+        }
+      }
+    } else {
+      tile
+    }
+  }
+
   /** Filter all values from `model` that are less than `threshold`. */
   def thresholdMask(threshold: Int)(model: RasterRDD[SpatialKey]): RasterRDD[SpatialKey] = {
     if (threshold > NODATA) {
@@ -157,10 +195,27 @@ trait ModelingServiceSparkLogic {
     }
   }
 
+  def thresholdTileMask(threshold: Int)(tile: Tile): Tile = {
+    if (threshold > NODATA) {
+      tile.map { z =>
+        if (z >= threshold) z
+        else NODATA
+      }
+    } else {
+      tile
+    }
+  }
+
   /** Filter model by 1 or more masks. */
   def applyMasks(model: RasterRDD[SpatialKey], masks: (RasterRDD[SpatialKey]) => RasterRDD[SpatialKey]*) = {
     masks.foldLeft(model) { (rdd, mask) =>
       mask(rdd)
+    }
+  }
+
+  def applyTileMasks(tile: Tile, masks: (Tile) => Tile*) = {
+    masks.foldLeft(tile) { (acc, mask) =>
+      mask(acc)
     }
   }
 
@@ -486,8 +541,14 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
           )
 
           val unmasked = weightedOverlayTms(implicitly, layers, weights, z, x, y)
+          val masked = applyTileMasks(
+            unmasked,
+            polyTileMask(polys),
+            layerTileMask(parseLayerTileMaskParam(implicitly, parsedLayerMask, z, x, y)),
+            thresholdTileMask(threshold)
+          )
 
-          val tile = renderTile(unmasked, breaks, colorRamp)
+          val tile = renderTile(masked, breaks, colorRamp)
           respondWithMediaType(MediaTypes.`image/png`) {
             complete(tile.bytes)
           }
