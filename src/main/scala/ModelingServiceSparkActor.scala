@@ -43,17 +43,6 @@ object ModelingServiceSparkActor {
     S3RasterCatalog("com.azavea.datahub", "catalog")
   }
 
-  def metaDatas(implicit sc: SparkContext) = {
-    val attributeStore = catalog.attributeStore
-    val all = attributeStore.readAll[S3LayerMetaData]("metadata")
-    println(all)
-    all
-  }
-
-  def zoomLevelsFor(implicit sc: SparkContext, layerName: String) = {
-    metaDatas.keys.filter(_.name == layerName).map(_.zoom).toSeq
-  }
-
 /*
   // LOCAL HADOOP CATALOG
 
