@@ -234,8 +234,17 @@ trait ModelingServiceSparkLogic {
       .zip(weights)
       .map { case (layer, weight) =>
         val base = ModelingServiceSparkActor.catalog.query[SpatialKey]((layer, ModelingServiceSparkActor.DEFAULT_ZOOM))
+
+        // val rmd = ModelingServiceSparkActor.catalog.getLayerMetadata((layer, ModelingServiceSparkActor.BREAKS_ZOOM)).rasterMetaData
+        // println(s"RASTERMETADATA: ${rmd.extent} ${rmd.tileLayout}")
+
         val intersected = base.where(Intersects(bounds))
         val rdd = intersected.toRDD
+
+        // val start = System.currentTimeMillis()
+        // val partitionSizes = rdd.mapPartitions { partition => Seq(partition.size).iterator }.collect
+        // println(s"PARTITIONTIME: ${System.currentTimeMillis - start} \nPARTITIONSUM: ${partitionSizes.sum}  \nSIZES:${partitionSizes.toSeq}")
+
         rdd.convert(TypeByte).localMultiply(weight)
       }
       .localAdd
