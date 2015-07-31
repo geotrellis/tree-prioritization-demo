@@ -378,7 +378,6 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
   lazy val serviceRoute =
     handleExceptions(exceptionHandler) {
       breaksRoute ~
-      overlayRoute ~
       histogramRoute ~
       rasterValueRoute ~
       overlayTmsRoute
@@ -452,67 +451,6 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
                 }
               }
             }
-          }
-        }
-      }
-    }
-  }
-
-  lazy val overlayRoute = path("gt" / "spark" / "wo") {
-    post {
-      formFields('service,
-                 'request,
-                 'version,
-                 'format,
-                 'bbox,
-                 'height.as[Int],
-                 'width.as[Int],
-                 'layers,
-                 'weights,
-                 'palette ? "ff0000,ffff00,00ff00,0000ff",
-                 'breaks,
-                 'srid.as[Int],
-                 'colorRamp ? "blue-to-red",
-                 'threshold.as[Int] ? NODATA,
-                 'polyMask ? "",
-                 'layerMask ? "") {
-        (_, _, _, _, bbox, cols, rows, layersString, weightsString,
-            palette, breaksString, srid, colorRamp, threshold,
-            polyMaskParam, layerMaskParam) => {
-          val extent = Extent.fromString(bbox)
-          val rasterExtent = RasterExtent(extent, cols, rows)
-
-          val layers = layersString.split(",")
-
-          val weights = weightsString.split(",").map(_.toInt)
-          val breaks = breaksString.split(",").map(_.toInt)
-
-          val parsedLayerMask = try {
-            import spray.json.DefaultJsonProtocol._
-            Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
-          } catch {
-            case ex: ParsingException =>
-              if (!layerMaskParam.isEmpty)
-                ex.printStackTrace(Console.err)
-              None
-          }
-
-          val polys = reprojectPolygons(
-            parsePolyMaskParam(polyMaskParam),
-            srid
-          )
-
-          val unmasked = weightedOverlay(implicitly, layers, weights, rasterExtent.extent)
-          val model = applyMasks(
-            unmasked,
-            polyMask(polys),
-            layerMask(parseLayerMaskParam(implicitly, parsedLayerMask, rasterExtent)),
-            thresholdMask(threshold)
-          )
-
-          val tile = renderTile(model, breaks, colorRamp)
-          respondWithMediaType(MediaTypes.`image/png`) {
-            complete(tile.bytes)
           }
         }
       }
