@@ -109,12 +109,13 @@ trait ModelingServiceSparkLogic {
     */
   def parseLayerMaskParam(implicit sc:SparkContext,
                           layerMask: Option[LayerMaskType],
-                          rasterExtent: RasterExtent): Iterable[RasterRDD[SpatialKey]] = {
+                          extent: Extent,
+                          zoom: Int): Iterable[RasterRDD[SpatialKey]] = {
     layerMask match {
       case Some(masks: LayerMaskType) =>
         masks map { case (layerName, values) =>
-          ModelingServiceSparkActor.catalog.query[SpatialKey]((layerName, ModelingServiceSparkActor.DEFAULT_ZOOM))
-          .where(Intersects(rasterExtent.extent))
+          ModelingServiceSparkActor.catalog.query[SpatialKey]((layerName, zoom))
+          .where(Intersects(extent))
           .toRDD
           .localMap { z =>
             if (values contains z) z
@@ -414,7 +415,6 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
               future {
                 val extent = Extent.fromString(bbox)
                 // TODO: Dynamic breaks based on configurable breaks resolution.
-                val rasterExtent = RasterExtent(extent, 256, 256)
 
                 val layers = layersParam.split(",")
                 val weights = weightsParam.split(",").map(_.toInt)
@@ -434,12 +434,18 @@ trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
                   srid
                 )
 
-                val unmasked = weightedOverlay(implicitly, layers, weights, rasterExtent.extent)
+                val unmasked = weightedOverlay(implicitly, layers, weights, extent)
                 val model = applyMasks(
                   unmasked,
-                  polyMask(polys),
-                  layerMask(parseLayerMaskParam(implicitly, parsedLayerMask, rasterExtent)),
-                  thresholdMask(threshold)
+                  polyMask(polys)
+                  /*
+                   TODO: Trying to use the land-use layer as a mask at
+                   a lower zoom levels generated "empty collection"
+                   exceptions. I suspect that the lower zoom versions
+                   have interpolated values that don't match the
+                   original, discrete values.
+                   */
+                  //layerMask(parseLayerMaskParam(implicitly, parsedLayerMask, extent, ModelingServiceSparkActor.BREAKS_ZOOM))
                 )
 
                 val breaks = getBreaks(model, numBreaks)
