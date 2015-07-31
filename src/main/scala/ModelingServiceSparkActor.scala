@@ -39,6 +39,10 @@ object ModelingServiceSparkActor {
 
   val DEFAULT_ZOOM = 13
 
+  // When reading 30m raster from a local dev machine, breaks
+  // performance does not imporve if you decrease the zoom level below 5
+  val BREAKS_ZOOM = 5
+
   def catalog(implicit sc: SparkContext): S3RasterCatalog = {
     S3RasterCatalog("com.azavea.datahub", "catalog")
   }
@@ -233,7 +237,7 @@ trait ModelingServiceSparkLogic {
     layers
       .zip(weights)
       .map { case (layer, weight) =>
-        val base = ModelingServiceSparkActor.catalog.query[SpatialKey]((layer, ModelingServiceSparkActor.DEFAULT_ZOOM))
+        val base = ModelingServiceSparkActor.catalog.query[SpatialKey]((layer, ModelingServiceSparkActor.BREAKS_ZOOM))
 
         // val rmd = ModelingServiceSparkActor.catalog.getLayerMetadata((layer, ModelingServiceSparkActor.BREAKS_ZOOM)).rasterMetaData
         // println(s"RASTERMETADATA: ${rmd.extent} ${rmd.tileLayout}")
