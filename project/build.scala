@@ -102,31 +102,6 @@ object OTMModelingBuild extends Build {
         "io.spray" %% "spray-can" % Version.spray,
         "org.scalatest" %% "scalatest" % Version.scalatest % "test",
         "org.apache.spark" %% "spark-core" % Version.spark % "provided",
-        // TODO: SPARK CORE SHOULD BE "provided"
-        /*
-
-I hit this error
-
-modeling > run
-[info] Running org.opentreemap.modeling.Main
-[error] Uncaught error from thread [GeoTrellis-akka.actor.default-dispatcher-3] shutting
- down JVM since 'akka.jvm-exit-on-fatal-error' is enabled for ActorSystem[GeoTrellis]
-[error] java.lang.NoClassDefFoundError: org/apache/spark/Logging
-
-Eugene explained
-
-yes, spark and hadoop are marked as “provided”, which means they are not present in run context classPath.
-This happens because spark programs are usually expected to be run by `spark-submit` command.
-You can do three things: use spark-submit (pain), run your stuff from test, remove provided.
-I don’t recommend removing provided, because that’s not how your stuff will be run in production and it will make you jump through some hoops managing spark context.
-So you best best would be to run it from test context.
-maybe have some like `object LocalServer extends App {…}`. And you can run it with `test:run`
-I haven’t ever actually done that, but should work out.
-
-To get things working I TEMPORARILY IGNORED HIM and removed "provided"
-
-         */
-        // "org.apache.spark" %% "spark-core" % Version.spark % "provided",
         "org.apache.hadoop" % "hadoop-client" % Version.hadoop % "provided"
       ),
 
