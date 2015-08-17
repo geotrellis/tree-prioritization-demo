@@ -16,6 +16,7 @@ object Version {
   val scalatest    = "2.2.1"
   val spray        = "1.3.2"
   val sprayJson    = "1.2.6"
+  lazy val jobserver = either("SPARK_JOBSERVER_VERSION", "0.5.1")
   lazy val hadoop  = either("SPARK_HADOOP_VERSION", "2.6.0")
   lazy val spark   = either("SPARK_VERSION", "1.2.0")
 }
@@ -27,7 +28,8 @@ object OTMModelingBuild extends Build {
     "Typesafe Repo"           at "http://repo.typesafe.com/typesafe/releases/",
     "spray repo"              at "http://repo.spray.io/",
     "Geotools" at "http://download.osgeo.org/webdav/geotools/",
-    "Scalaz Bintray Repo" at "https://dl.bintray.com/scalaz/releases"
+    "Scalaz Bintray Repo" at "https://dl.bintray.com/scalaz/releases",
+    "Job Server Bintray" at "https://dl.bintray.com/spark-jobserver/maven"
   )
 
   // Default settings
@@ -76,14 +78,12 @@ object OTMModelingBuild extends Build {
     resolvers ++= resolutionRepos
   )
 
-  lazy val modeling: Project =
-    Project("modeling", file("."))
-      .settings(modelingSettings:_*)
+  lazy val root: Project =
+    Project("otm-modeling", file(".")).aggregate(summary, tiler)
 
-  lazy val modelingSettings =
+  lazy val rootSettings =
     Seq(
       organization := "org.opentreemap.modeling",
-      name := "modeling",
 
       scalaVersion := Version.scala,
 
@@ -106,6 +106,33 @@ object OTMModelingBuild extends Build {
       ),
 
       unmanagedResourceDirectories in Compile <+= baseDirectory / "data"
-    ) ++
-  defaultAssemblySettings
+    ) ++ defaultAssemblySettings
+
+
+  lazy val common = Project("common",  file("common"))
+    .settings(commonSettings:_*)
+
+  lazy val commonSettings =
+    Seq(
+      name := "otm-modeling-common"
+    ) ++ rootSettings
+
+  lazy val summary = Project("summary",  file("summary"))
+    .settings(summarySettings:_*).dependsOn(common)
+
+  lazy val summarySettings =
+    Seq(
+      name := "otm-modeling-summary",
+      libraryDependencies ++= Seq(
+        "spark.jobserver" %% "job-server-api" % Version.jobserver % "provided"
+      )
+    ) ++ rootSettings
+
+  lazy val tiler = Project("tiler",  file("tiler"))
+    .settings(tilerSettings:_*).dependsOn(common)
+
+  lazy val tilerSettings =
+    Seq(
+      name := "otm-modeling-tiler"
+    ) ++ rootSettings
 }

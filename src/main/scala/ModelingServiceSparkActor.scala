@@ -35,198 +35,14 @@ import spray.json.JsonParser.ParsingException
 
 import com.vividsolutions.jts.{ geom => jts }
 
-object ModelingServiceSparkActor {
-
-  val DEFAULT_ZOOM = 13
-
-  // When reading 30m raster from a local dev machine, breaks
-  // performance does not imporve if you decrease the zoom level below 5
-  val BREAKS_ZOOM = 5
-
-  def catalog(implicit sc: SparkContext): S3RasterCatalog = {
-    S3RasterCatalog("com.azavea.datahub", "catalog")
-  }
-
-/*
-  // LOCAL HADOOP CATALOG
-
-  val DATA_PATH = "data/catalog"
-
-  def catalogPath(implicit sc: SparkContext): Path = {
-    val localFS = new Path(System.getProperty("java.io.tmpdir")).getFileSystem(sc.hadoopConfiguration)
-    new Path(localFS.getWorkingDirectory, DATA_PATH +  "/hadoop")
-  }
-
-  def catalog(implicit sc: SparkContext): HadoopRasterCatalog = {
-    val conf = sc.hadoopConfiguration
-    val localFS = catalogPath.getFileSystem(sc.hadoopConfiguration)
-    val doesNotExist = !localFS.exists(catalogPath)
-    val catalog = HadoopRasterCatalog(catalogPath)
-
-    if (doesNotExist) {
-      println(s"Writing data to the catalog")
-      LocalHadoopCatalog.writeTiffsToCatalog(catalog, DATA_PATH)
-    }
-    catalog
-  }
- */
-}
-
 class ModelingServiceSparkActor extends Actor with ModelingServiceSpark {
   override def actorRefFactory = context
   override def receive = runRoute(serviceRoute)
 }
 
-
 trait ModelingServiceSparkLogic {
   import ModelingTypes._
 
-  /** Convert GeoJson string to Polygon sequence.
-    * The `polyMask` parameter expects a single GeoJson blob,
-    * so this should never return a sequence with more than 1 element.
-    * However, we still return a sequence, in case we want this param
-    * to support multiple polygons in the future.
-    */
-  def parsePolyMaskParam(polyMask: String): Seq[Polygon] = {
-    try {
-      import spray.json.DefaultJsonProtocol._
-      val featureColl = polyMask.parseGeoJson[JsonFeatureCollection]
-      val polys = featureColl.getAllPolygons union
-                  featureColl.getAllMultiPolygons.map(_.polygons).flatten
-      polys
-    } catch {
-      case ex: ParsingException =>
-        if (!polyMask.isEmpty)
-          ex.printStackTrace(Console.err)
-        Seq[Polygon]()
-    }
-  }
-
- /** Convert `layerMask` map to list of filtered rasters.
-    * The result contains a raster for each layer specified,
-    * and that raster only contains whitelisted values present
-    * in the `layerMask` argument.
-    */
-  def parseLayerMaskParam(implicit sc:SparkContext,
-                          layerMask: Option[LayerMaskType],
-                          extent: Extent,
-                          zoom: Int): Iterable[RasterRDD[SpatialKey]] = {
-    layerMask match {
-      case Some(masks: LayerMaskType) =>
-        masks map { case (layerName, values) =>
-          ModelingServiceSparkActor.catalog.query[SpatialKey]((layerName, zoom))
-          .where(Intersects(extent))
-          .toRDD
-          .localMap { z =>
-            if (values contains z) z
-            else NODATA
-          }
-
-        }
-      case None =>
-        Seq[RasterRDD[SpatialKey]]()
-    }
-  }
-
-  def parseLayerTileMaskParam(implicit sc:SparkContext,
-                              layerMask: Option[LayerMaskType],
-                              z:Int, x:Int, y:Int): Iterable[Tile] = {
-    layerMask match {
-      case Some(masks: LayerMaskType) =>
-        masks map { case (layer, values) =>
-          val reader = ModelingServiceSparkActor.catalog.tileReader[SpatialKey]((layer, z))
-          val tile = reader(SpatialKey(x, y))
-          tile.map { z =>
-            if (values contains z) z
-            else NODATA
-          }
-
-        }
-      case None =>
-        Seq[Tile]()
-    }
-  }
-
-  /** Combine multiple polygons into a single mask raster. */
-  def polyMask(polyMasks: Iterable[Polygon])(model: RasterRDD[SpatialKey]): RasterRDD[SpatialKey] = {
-    // TODO: Pull in an updated Geotrellis when this is complete and merged
-    // https://github.com/zifeo/geotrellis/commit/d63608cb7d77c0358a5dd8118f6289d6d9366799
-    model
-  }
-
-  def polyTileMask(polyMasks: Iterable[Polygon])(tile: Tile): Tile = {
-    // TODO: Pull in an updated Geotrellis when this is complete and merged
-    // https://github.com/zifeo/geotrellis/commit/d63608cb7d77c0358a5dd8118f6289d6d9366799
-    tile
-  }
-
-  /** Combine multiple rasters into a single raster.
-    * The resulting raster will contain values from `model` only at
-    * points that have values in every `layerMask`. (AND-like operation)
-    */
-  def layerMask(layerMasks: Iterable[RasterRDD[SpatialKey]])(model: RasterRDD[SpatialKey]): RasterRDD[SpatialKey] = {
-    if (layerMasks.size > 0) {
-      layerMasks.foldLeft(model) { (rdd, mask) =>
-        rdd.combineTiles(mask) { (rddTile, maskTile) =>
-          rddTile.combine(maskTile) { (z, maskValue) =>
-            if (isData(maskValue)) z
-            else NODATA
-          }
-        }
-      }
-    } else {
-      model
-    }
-  }
-
-  def layerTileMask(layerMasks: Iterable[Tile])(tile: Tile): Tile = {
-    if (layerMasks.size > 0) {
-      layerMasks.foldLeft(tile) { (acc, mask) =>
-        acc.combine(mask) { (z, maskValue) =>
-          if (isData(maskValue)) z
-          else NODATA
-        }
-      }
-    } else {
-      tile
-    }
-  }
-
-  /** Filter all values from `model` that are less than `threshold`. */
-  def thresholdMask(threshold: Int)(model: RasterRDD[SpatialKey]): RasterRDD[SpatialKey] = {
-    if (threshold > NODATA) {
-      model.localMap { z =>
-        if (z >= threshold) z
-        else NODATA
-      }
-    } else {
-      model
-    }
-  }
-
-  def thresholdTileMask(threshold: Int)(tile: Tile): Tile = {
-    if (threshold > NODATA) {
-      tile.map { z =>
-        if (z >= threshold) z
-        else NODATA
-      }
-    } else {
-      tile
-    }
-  }
-
-  /** Filter model by 1 or more masks. */
-  def applyMasks(model: RasterRDD[SpatialKey], masks: (RasterRDD[SpatialKey]) => RasterRDD[SpatialKey]*) = {
-    masks.foldLeft(model) { (rdd, mask) =>
-      mask(rdd)
-    }
-  }
-
-  def applyTileMasks(tile: Tile, masks: (Tile) => Tile*) = {
-    masks.foldLeft(tile) { (acc, mask) =>
-      mask(acc)
-    }
-  }
 
   /** Multiply `layers` by their corresponding `weights` and combine
     * them to form a single raster.
@@ -352,21 +168,7 @@ trait ModelingServiceSparkLogic {
     }.toSeq.flatten
   }
 
-  def reprojectPolygons(polys: Seq[Polygon], srid: Int): Seq[Polygon] = {
-    srid match {
-      case 3857 => polys
-      case 4326 => polys.map(_.reproject(LatLng, WebMercator))
-      case _ => throw new ModelingException("SRID not supported.")
-    }
-  }
 
-  def reprojectPoint(point: Point, srid: Int): Point = {
-    srid match {
-      case 3857 => point
-      case 4326 => point.reproject(LatLng, WebMercator)
-      case _ => throw new ModelingException("SRID not supported.")
-    }
-  }
 }
 
 trait ModelingServiceSpark extends HttpService with ModelingServiceSparkLogic {
