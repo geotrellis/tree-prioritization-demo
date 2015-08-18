@@ -1,4 +1,4 @@
-package org.opentreemap.modeling
+package org.opentreemap.modeling.tile
 
 import geotrellis.raster._
 import geotrellis.vector._

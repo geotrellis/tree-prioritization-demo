@@ -79,7 +79,7 @@ object OTMModelingBuild extends Build {
   )
 
   lazy val root: Project =
-    Project("otm-modeling", file(".")).aggregate(summary, tiler)
+    Project("otm-modeling", file(".")).aggregate(summary, tile)
 
   lazy val rootSettings =
     Seq(
@@ -128,11 +128,11 @@ object OTMModelingBuild extends Build {
       )
     ) ++ rootSettings
 
-  lazy val tiler = Project("tiler",  file("tiler"))
-    .settings(tilerSettings:_*).dependsOn(common)
+  lazy val tile = Project("tile",  file("tile"))
+    .settings(tileSettings:_*).dependsOn(common)
 
-  lazy val tilerSettings =
+  lazy val tileSettings =
     Seq(
-      name := "otm-modeling-tiler"
+      name := "otm-modeling-tile"
     ) ++ rootSettings
 }
