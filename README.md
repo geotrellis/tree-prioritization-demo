@@ -1,4 +1,6 @@
-# OpenTreeMap Modeling and Prioritization Service
+# OpenTreeMap Modeling and Prioritization Services
+
+# NOTE: THIS DOCUMENTATION REFERS TO OLD CODE AND HAS NOT YET BEEN UPDATED
 
 ## Getting Started
 
@@ -163,4 +165,3 @@ Sample output:
             ["Tree 2", -117.91488647460938, 33.81680727566875, 23]
         ]
     }
-

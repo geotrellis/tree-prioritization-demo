@@ -1,4 +1,4 @@
-package org.opentreemap.modeling
+package org.opentreemap.modeling.tile
 
 import geotrellis.engine._
 
@@ -12,10 +12,9 @@ object Main {
 
     // create and start our the service actor
     val service =
-      system.actorOf(Props(classOf[ModelingServiceActor]), "opentreemap-modeling-service")
+      system.actorOf(Props(classOf[TileServiceActor]), "opentreemap-modeling-tile-service")
 
     // start a new HTTP server with the service actor as the handler
-    IO(Http) ! Http.Bind(service, ServiceConfig.host, port = ServiceConfig.port)
+    IO(Http) ! Http.Bind(service, TileServiceConfig.host, port = TileServiceConfig.port)
   }
 }
-
