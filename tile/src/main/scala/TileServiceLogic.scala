@@ -48,7 +48,7 @@ trait TileServiceLogic {
             val largerTile = reader(SpatialKey(nx, ny))
             largerTile.resample(sourceExtent, RasterExtent(targetExtent, 256, 256))
           }
-        // Convert Byte tiles to Int so that they do not overflow
+        // Convert Byte tiles to Int so that math operations do not overflow
         tile.convert(TypeInt).map(_ * weight)
     }
       .reduce(addTiles)
@@ -65,7 +65,8 @@ trait TileServiceLogic {
         val base = catalog.query[SpatialKey]((layer, BREAKS_ZOOM))
         val intersected = base.where(Intersects(bounds))
         val rdd = intersected.toRDD
-        rdd.convert(TypeByte).localMultiply(weight)
+        // Convert Byte RDD to Int so that math operations do not overflow
+        rdd.convert(TypeInt).localMultiply(weight)
       }
       .localAdd
   }
