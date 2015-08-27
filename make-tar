@@ -6,7 +6,7 @@ rm -rf target && mkdir target
 ./sbt test assembly
 
 rm -rf build && mkdir -p build/modeling/data
-cp `ls target/*.jar` build/modeling/modeling.jar
+cp `ls target/scala-2.10/*.jar` build/modeling/modeling.jar
 cp -r data build/modeling
 cd build
 tar czf modeling.tar.gz modeling
