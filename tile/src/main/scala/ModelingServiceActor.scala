@@ -27,20 +27,13 @@ import spray.json.JsonParser.ParsingException
 import com.vividsolutions.jts.{ geom => jts }
 
 
-object ModelingTypes {
-  // Map of layer names to selected values.
-  // Ex. { Layer1: [1, 2, 3], ... }
-  type LayerMaskType = Map[String, Array[Int]]
-}
-
-
 class ModelingServiceActor extends Actor with ModelingService {
   override def actorRefFactory = context
   override def receive = runRoute(serviceRoute)
 }
 
 
-trait ModelingServiceLogic {
+trait ModelingServiceLogic extends VectorHandling {
   import ModelingTypes._
 
   def createRasterSource(layer: String) =
@@ -48,27 +41,6 @@ trait ModelingServiceLogic {
 
   def createRasterSource(layer: String, extent: RasterExtent) =
     RasterSource(layer, extent)
-
-  /** Convert GeoJson string to Polygon sequence.
-    * The `polyMask` parameter expects a single GeoJson blob,
-    * so this should never return a sequence with more than 1 element.
-    * However, we still return a sequence, in case we want this param
-    * to support multiple polygons in the future.
-    */
-  def parsePolyMaskParam(polyMask: String): Seq[Polygon] = {
-    try {
-      import spray.json.DefaultJsonProtocol._
-      val featureColl = polyMask.parseGeoJson[JsonFeatureCollection]
-      val polys = featureColl.getAllPolygons union
-                  featureColl.getAllMultiPolygons.map(_.polygons).flatten
-      polys
-    } catch {
-      case ex: ParsingException =>
-        if (!polyMask.isEmpty)
-          ex.printStackTrace(Console.err)
-        Seq[Polygon]()
-    }
-  }
 
   /** Convert `layerMask` map to list of filtered rasters.
     * The result contains a raster for each layer specified,
@@ -190,22 +162,6 @@ trait ModelingServiceLogic {
     }.get.flatten.toList match {
       case head :: tail => head
       case Nil => NODATA
-    }
-  }
-
-  def reprojectPolygons(polys: Seq[Polygon], srid: Int): Seq[Polygon] = {
-    srid match {
-      case 3857 => polys
-      case 4326 => polys.map(_.reproject(LatLng, WebMercator))
-      case _ => throw new ModelingException("SRID not supported.")
-    }
-  }
-
-  def reprojectPoint(point: Point, srid: Int): Point = {
-    srid match {
-      case 3857 => point
-      case 4326 => point.reproject(LatLng, WebMercator)
-      case _ => throw new ModelingException("SRID not supported.")
     }
   }
 }
@@ -443,4 +399,3 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
     }
   }
 }
-
