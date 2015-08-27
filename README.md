@@ -6,15 +6,51 @@
 
     scp lr11:/var/trellis/usace/Peo10_no-huc12.* /var/projects/OpenTreeMap-Modeling/data/catalog/
 
-### Run the service
+### Run the tile service
 
 1. ``git clone git@github.com:opentreemap/otm-modeling.git``
 1. ``cd OpenTreeMap-Modeling``
 1. ``./sbt "project tile" run``
 
+### Run the summary Spark Job Server job
+
+1. Install [Docker](https://www.docker.com)
+1. Setup your ``~/.aws`` directory so that the default account has access to the com.azavea.datahub S3 bucket.
+1. ``./sbt "project summary" assembly``
+1. Run Spark Job Server
+
+    ```
+    docker run \
+      --volume ${HOME}/.aws:/root/ws:ro \
+      --volume ${PWD}/summary/etc/spark-jobserver.conf:/opt/spark-jobserver/spark-jobserver.conf:ro \
+      --publish 8090:8090 --name spark-jobserver quay.io/azavea/spark-jobserver:latest
+    ```
+
+1. Add the job jar to SJS
+
+    ```
+    curl --silent \
+         --data-binary @summary/target/scala-2.10/otm-modeling-summary-assembly-0.0.1.jar \
+         'http://localhost:8090/jars/summary'
+    ```
+
+1. Create a Spark context
+
+    ```
+    curl --silent --data "" 'http://localhost:8090/contexts/summary-context'``
+    ```
+
+1. Test a job
+
+    ```
+    curl --silent \
+         --data-binary @summary/examples/request-histogram.json \
+         'http://localhost:8090/jobs?sync=true&context=summary-context&appName=summary&classPath=org.opentreemap.modeling.HistogramJob
+    ```
+
 ### Auto reloading
 
-Use the *sbt-revolver* plugin to monitor and automatically reload the service when there are any file changes.
+Use the *sbt-revolver* plugin to monitor and automatically reload the tile service when there are any file changes.
 
     ./sbt "project tile" ~re-start
 
@@ -28,16 +64,14 @@ Use the *sbt-revolver* plugin to monitor and automatically reload the service wh
 1. ``cd OpenTreeMap-Modeling``
 1. ``./make-tar``
 
-## Endpoint description
+## Tile endpoint description
 
-Here are the HTTP endpoints that are available from this service.
+Here are the HTTP endpoints that are available from the tile service.
 
 * [/](#index)
 * [/gt/colors](#gtcolors)
 * [/gt/breaks](#gtbreaks)
 * [/gt/wo](#gtwo)
-* [/gt/histogram](#gthistogram)
-* [/gt/value](#gtvalue)
 
 ### <a name="index"></a> /
 
@@ -112,54 +146,75 @@ Arguments:
 | polyMask   |           | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
 | layerMask  |           | JSON    | Exclude values from result. Map of layer names to selected raster values. Format: `{ LayerName: [1, 2, 3], ...}`
 
-### /gt/histogram
 
-Return distribution of raster values for specified `layer` within `polyMask` (optional).
+## Summary job descriptions
 
-Accepted verbs: __POST__
+### org.opentreemap.modeling.HistogramJob
+
+Return distribution of raster values for specified `layer` at the
+specified `zoom` within `polyMask`.
 
 Arguments:
 
 | Name       | Required? | Type    |  Description |
 |------------|-----------|---------|--------------|
-| bbox       | Yes       | String  | Bounding box projected as WebMercator. Format: `xmin,ymin,xmax,ymax`
-| layer      | Yes       | String  | Layer name. Should match the filename of the source raster.
-| srid       | Yes       | Int     | Spatial Reference Identifier. Acceptable values are `3857` or `4326`.
-| polyMask   |           | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
+| layer      | Yes       | String  | Layer name. Should match the name of a layer in the Azavea datahub S3 bucket.
+| zoom       | Yes       | Int     | Which OSM zoom level (resolution) to use. 11 is the closest match for 30m NLCD.
+| polyMask   | Yes       | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
+
+
+Sample input:
+
+    {
+      "input": {
+        "zoom": 11,
+        "layer": "nlcd-wm-ext-tms",
+        "polyMask": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{},\"geometry\":{\"type\":\"Polygon\",\"crs\":\"EPSG:3857\",\"coordinates\":[[[-13150073.472125152,4014380.7622378],[-13181073.472125152,4014380.7622378],[-13151073.472125152,4015380.7622378],[-13150073.472125152,4015380.7622378],[-13150073.472125152,4014380.7622378]]]}}]}"
+      }
+    }
 
 Sample output:
 
     {
-        "elapsed": "62",
-        "histogram": [[1,25069],[2,9809],[3,3661],[4,2683],[5,492],[8,348],[9,624],[10,3122],[14,1336]]
+      "status": "OK",
+      "result": {
+        "elapsed": 272,
+        "envelope": [-13181073.472125152, 4014380.7622378, -13150073.472125152, 4015380.7622378],
+        "histogram": [[11, 80], [21, 281], [22, 1358], [23, 14987], [24, 8316], [71, 98]]
+      }
     }
 
-### /gt/value
 
-Return value for multiple points on a raster.
+### org.opentreemap.modeling.PointValuesJob
 
-Accepted verbs: __POST__
+Return the value for one or more points on a raster.
 
 Arguments:
 
 | Name       | Required? | Type    |  Description |
 |------------|-----------|---------|--------------|
 | layer      | Yes       | String  | Layer name.
+| zoom       | Yes       | Int     | Which OSM zoom level (resolution) to use. 11 is the closest match for 30m NLCD.
 | coords     | Yes       | String  | Comma delimited list of values formatted like `Name,X,Y,...`.
 | srid       | Yes       | Int     | Spatial Reference Identifier. Acceptable values are `3857` or `4326`.
 
-Sample request body:
+Sample input:
 
-    layer=nlcd
-    &srid=4326
-    &coords=Tree1,-118.24722290039064,33.972975771726006,
-            Tree2,-117.91488647460938,33.81680727566875
+    {
+      "input": {
+        "zoom": 11,
+        "layer": "nlcd-wm-ext-tms",
+        "srid": 3857,
+        "coords": "1,-13150073.472125152,4014380.7622378,2,-13155073.472125152,4012380.7622378"
+      }
+    }
 
 Sample output:
 
     {
-        "coords": [
-            ["Tree 1", -118.24722290039064, 33.972975771726006, 35],
-            ["Tree 2", -117.91488647460938, 33.81680727566875, 23]
-        ]
+      "status": "OK",
+      "result": {
+        "elapsed": 761,
+        "coords": [["1", -13150073.472125152, 4014380.7622378, 23], ["2", -13155073.472125152, 4012380.7622378, 22]]
+      }
     }

@@ -135,35 +135,6 @@ trait ModelingServiceLogic extends VectorHandling {
     }
     model.renderPng(ramp.toArray, breaks.toArray)
   }
-
-  /** Return raster value distribution for `model`. */
-  def histogram(model: RasterSource, polyMask: Seq[Polygon]): ValueSource[Histogram] = {
-    if (polyMask.size > 0) {
-      val histograms =
-        DataSource.fromSources(
-          polyMask map { p => model.zonalHistogram(p) }
-        )
-      histograms.converge { seq => FastMapHistogram.fromHistograms(seq) }
-    } else {
-      model.histogram
-    }
-  }
-
-  /** Return raster value at a certain point. */
-  def rasterValue(model: RasterSource, pt: Point): Int = {
-    model.mapWithExtent { (tile, extent) =>
-      if (extent.intersects(pt)) {
-        val re = RasterExtent(extent, tile.cols, tile.rows)
-        val (col, row) = re.mapToGrid(pt.x, pt.y)
-        Some(tile.get(col, row))
-      } else {
-        None
-      }
-    }.get.flatten.toList match {
-      case head :: tail => head
-      case Nil => NODATA
-    }
-  }
 }
 
 trait ModelingService extends HttpService with ModelingServiceLogic {
@@ -177,8 +148,6 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
       colorsRoute ~
       breaksRoute ~
       overlayRoute ~
-      histogramRoute ~
-      rasterValueRoute ~
       staticRoute
     }
 
@@ -331,70 +300,6 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
               failWith(new RuntimeException(message))
           }
         }
-      }
-    }
-  }
-
-  lazy val histogramRoute = path("gt" / "histogram") {
-    post {
-      formFields('bbox,
-                 'layer,
-                 'srid.as[Int],
-                 'polyMask ? "") {
-        (bbox, layer, srid, polyMaskParam) => {
-          val start = System.currentTimeMillis()
-          val extent = Extent.fromString(bbox)
-          // TODO: Dynamic breaks based on configurable breaks resolution.
-          val rasterExtent = RasterExtent(extent, 256, 256)
-          val rs = createRasterSource(layer, rasterExtent)
-
-          val polys = reprojectPolygons(
-            parsePolyMaskParam(polyMaskParam),
-            srid
-          )
-
-          val summary = histogram(rs, polys)
-          summary.run match {
-            case Complete(result, h) =>
-              val elapsedTotal = System.currentTimeMillis - start
-              val histogram = result.toJSON
-              val data =
-                s"""{
-                  "elapsed": "$elapsedTotal",
-                  "histogram": $histogram
-                    }"""
-              complete(data)
-            case Error(message, trace) =>
-              failWith(new RuntimeException(message))
-          }
-        }
-      }
-    }
-  }
-
-  lazy val rasterValueRoute = path("gt" / "value") {
-    post {
-      formFields('layer, 'coords, 'srid.as[Int]) {
-        (layer, coordsParam, srid) =>
-
-        val rs = createRasterSource(layer)
-
-        val coords = (coordsParam.split(",").grouped(3) collect {
-          case Array(id, xParam, yParam) =>
-            try {
-              val pt = reprojectPoint(
-                Point(xParam.toDouble, yParam.toDouble),
-                srid
-              )
-              val z = rasterValue(rs, pt)
-              Some((id, pt.x, pt.y, z))
-            } catch {
-              case ex: NumberFormatException => None
-            }
-        }).toList
-
-        import spray.json.DefaultJsonProtocol._
-        complete(s"""{ "coords": ${coords.toJson} }""")
       }
     }
   }
