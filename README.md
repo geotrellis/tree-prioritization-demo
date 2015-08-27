@@ -8,19 +8,19 @@
 
 ### Run the service
 
-1. ``git clone git@github.com:OpenTreeMap/OpenTreeMap-Modeling.git``
+1. ``git clone git@github.com:opentreemap/otm-modeling.git``
 1. ``cd OpenTreeMap-Modeling``
-1. ``./sbt run``
+1. ``./sbt "project tile" run``
 
 ### Auto reloading
 
 Use the *sbt-revolver* plugin to monitor and automatically reload the service when there are any file changes.
 
-    ./sbt ~re-start
+    ./sbt "project tile" ~re-start
 
 ### Run unit tests
 
-    ./sbt ~test
+    ./sbt "project tile" ~test
 
 ### Build a distribution tarball
 
@@ -163,4 +163,3 @@ Sample output:
             ["Tree 2", -117.91488647460938, 33.81680727566875, 23]
         ]
     }
-

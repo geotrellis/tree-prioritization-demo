@@ -4,4 +4,3 @@ package org.opentreemap.modeling
   * safe to expose to the public.
   */
 class ModelingException(message: String) extends Exception(message)
-
