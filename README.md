@@ -72,7 +72,6 @@ Here are the HTTP endpoints that are available from the tile service.
 * [/gt/colors](#gtcolors)
 * [/gt/breaks](#gtbreaks)
 * [/gt/wo](#gtwo)
-* [/gt/value](#gtvalue)
 
 ### <a name="index"></a> /
 
@@ -148,36 +147,6 @@ Arguments:
 | layerMask  |           | JSON    | Exclude values from result. Map of layer names to selected raster values. Format: `{ LayerName: [1, 2, 3], ...}`
 
 
-### /gt/value
-
-Return value for multiple points on a raster.
-
-Accepted verbs: __POST__
-
-Arguments:
-
-| Name       | Required? | Type    |  Description |
-|------------|-----------|---------|--------------|
-| layer      | Yes       | String  | Layer name.
-| coords     | Yes       | String  | Comma delimited list of values formatted like `Name,X,Y,...`.
-| srid       | Yes       | Int     | Spatial Reference Identifier. Acceptable values are `3857` or `4326`.
-
-Sample request body:
-
-    layer=nlcd
-    &srid=4326
-    &coords=Tree1,-118.24722290039064,33.972975771726006,
-            Tree2,-117.91488647460938,33.81680727566875
-
-Sample output:
-
-    {
-        "coords": [
-            ["Tree 1", -118.24722290039064, 33.972975771726006, 35],
-            ["Tree 2", -117.91488647460938, 33.81680727566875, 23]
-        ]
-    }
-
 ## Summary job descriptions
 
 ### org.opentreemap.modeling.HistogramJob
@@ -187,6 +156,14 @@ specified `zoom` within `polyMask`.
 
 Arguments:
 
+| Name       | Required? | Type    |  Description |
+|------------|-----------|---------|--------------|
+| layer      | Yes       | String  | Layer name. Should match the name of a layer in the Azavea datahub S3 bucket.
+| zoom       | Yes       | Int     | Which OSM zoom level (resolution) to use. 11 is the closest match for 30m NLCD.
+| polyMask   | Yes       | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
+
+
+Sample input:
 
     {
       "input": {
@@ -196,13 +173,6 @@ Arguments:
       }
     }
 
-
-| Name       | Required? | Type    |  Description |
-|------------|-----------|---------|--------------|
-| layer      | Yes       | String  | Layer name. Should match the name of a layer in the Azavea datahub S3 bucket.
-| zoom       | Yes       | Int     | Which OSM zoom level (resolution) to use. 11 is the closest match for 30m NLCD.
-| polyMask   | Yes       | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
-
 Sample output:
 
     {
@@ -211,5 +181,40 @@ Sample output:
         "elapsed": 272,
         "envelope": [-13181073.472125152, 4014380.7622378, -13150073.472125152, 4015380.7622378],
         "histogram": [[11, 80], [21, 281], [22, 1358], [23, 14987], [24, 8316], [71, 98]]
+      }
+    }
+
+
+### org.opentreemap.modeling.PointValuesJob
+
+Return the value for one or more points on a raster.
+
+Arguments:
+
+| Name       | Required? | Type    |  Description |
+|------------|-----------|---------|--------------|
+| layer      | Yes       | String  | Layer name.
+| zoom       | Yes       | Int     | Which OSM zoom level (resolution) to use. 11 is the closest match for 30m NLCD.
+| coords     | Yes       | String  | Comma delimited list of values formatted like `Name,X,Y,...`.
+| srid       | Yes       | Int     | Spatial Reference Identifier. Acceptable values are `3857` or `4326`.
+
+Sample input:
+
+    {
+      "input": {
+        "zoom": 11,
+        "layer": "nlcd-wm-ext-tms",
+        "srid": 3857,
+        "coords": "1,-13150073.472125152,4014380.7622378,2,-13155073.472125152,4012380.7622378"
+      }
+    }
+
+Sample output:
+
+    {
+      "status": "OK",
+      "result": {
+        "elapsed": 761,
+        "coords": [["1", -13150073.472125152, 4014380.7622378, 23], ["2", -13155073.472125152, 4012380.7622378, 22]]
       }
     }

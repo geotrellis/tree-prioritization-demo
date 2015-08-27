@@ -135,22 +135,6 @@ trait ModelingServiceLogic extends VectorHandling {
     }
     model.renderPng(ramp.toArray, breaks.toArray)
   }
-
-  /** Return raster value at a certain point. */
-  def rasterValue(model: RasterSource, pt: Point): Int = {
-    model.mapWithExtent { (tile, extent) =>
-      if (extent.intersects(pt)) {
-        val re = RasterExtent(extent, tile.cols, tile.rows)
-        val (col, row) = re.mapToGrid(pt.x, pt.y)
-        Some(tile.get(col, row))
-      } else {
-        None
-      }
-    }.get.flatten.toList match {
-      case head :: tail => head
-      case Nil => NODATA
-    }
-  }
 }
 
 trait ModelingService extends HttpService with ModelingServiceLogic {
@@ -164,7 +148,6 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
       colorsRoute ~
       breaksRoute ~
       overlayRoute ~
-      rasterValueRoute ~
       staticRoute
     }
 
@@ -317,33 +300,6 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
               failWith(new RuntimeException(message))
           }
         }
-      }
-    }
-  }
-
-  lazy val rasterValueRoute = path("gt" / "value") {
-    post {
-      formFields('layer, 'coords, 'srid.as[Int]) {
-        (layer, coordsParam, srid) =>
-
-        val rs = createRasterSource(layer)
-
-        val coords = (coordsParam.split(",").grouped(3) collect {
-          case Array(id, xParam, yParam) =>
-            try {
-              val pt = reprojectPoint(
-                Point(xParam.toDouble, yParam.toDouble),
-                srid
-              )
-              val z = rasterValue(rs, pt)
-              Some((id, pt.x, pt.y, z))
-            } catch {
-              case ex: NumberFormatException => None
-            }
-        }).toList
-
-        import spray.json.DefaultJsonProtocol._
-        complete(s"""{ "coords": ${coords.toJson} }""")
       }
     }
   }
