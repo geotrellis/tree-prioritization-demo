@@ -136,19 +136,6 @@ trait ModelingServiceLogic extends VectorHandling {
     model.renderPng(ramp.toArray, breaks.toArray)
   }
 
-  /** Return raster value distribution for `model`. */
-  def histogram(model: RasterSource, polyMask: Seq[Polygon]): ValueSource[Histogram] = {
-    if (polyMask.size > 0) {
-      val histograms =
-        DataSource.fromSources(
-          polyMask map { p => model.zonalHistogram(p) }
-        )
-      histograms.converge { seq => FastMapHistogram.fromHistograms(seq) }
-    } else {
-      model.histogram
-    }
-  }
-
   /** Return raster value at a certain point. */
   def rasterValue(model: RasterSource, pt: Point): Int = {
     model.mapWithExtent { (tile, extent) =>
@@ -177,7 +164,6 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
       colorsRoute ~
       breaksRoute ~
       overlayRoute ~
-      histogramRoute ~
       rasterValueRoute ~
       staticRoute
     }
@@ -327,43 +313,6 @@ trait ModelingService extends HttpService with ModelingServiceLogic {
               respondWithMediaType(MediaTypes.`image/png`) {
                 complete(img.bytes)
               }
-            case Error(message, trace) =>
-              failWith(new RuntimeException(message))
-          }
-        }
-      }
-    }
-  }
-
-  lazy val histogramRoute = path("gt" / "histogram") {
-    post {
-      formFields('bbox,
-                 'layer,
-                 'srid.as[Int],
-                 'polyMask ? "") {
-        (bbox, layer, srid, polyMaskParam) => {
-          val start = System.currentTimeMillis()
-          val extent = Extent.fromString(bbox)
-          // TODO: Dynamic breaks based on configurable breaks resolution.
-          val rasterExtent = RasterExtent(extent, 256, 256)
-          val rs = createRasterSource(layer, rasterExtent)
-
-          val polys = reprojectPolygons(
-            parsePolyMaskParam(polyMaskParam),
-            srid
-          )
-
-          val summary = histogram(rs, polys)
-          summary.run match {
-            case Complete(result, h) =>
-              val elapsedTotal = System.currentTimeMillis - start
-              val histogram = result.toJSON
-              val data =
-                s"""{
-                  "elapsed": "$elapsedTotal",
-                  "histogram": $histogram
-                    }"""
-              complete(data)
             case Error(message, trace) =>
               failWith(new RuntimeException(message))
           }
