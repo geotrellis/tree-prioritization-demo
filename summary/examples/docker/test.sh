@@ -6,12 +6,16 @@ printf "\nCleanup Existing Container (errors ok)\n"
 docker kill otm-modeling-summary || true
 docker rm otm-modeling-summary || true
 
+DATAHUB_AWS_PROFILE=otm-test
+printf "Tiles will be requested using the $DATAHUB_AWS_PROFILE AWS profile\n"
+
 docker run \
   --detach \
   --name otm-modeling-summary \
   --publish 8090:8090 \
   --volume $HOME/.aws:/root/.aws \
   --volume $PWD/spark-jobserver.conf:/opt/spark-jobserver/spark-jobserver.conf \
+  --env AWS_PROFILE=$DATAHUB_AWS_PROFILE \
   --log-driver syslog \
   quay.io/azavea/spark-jobserver:latest --driver-memory 512M
 

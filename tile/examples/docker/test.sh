@@ -10,6 +10,8 @@ docker kill otm-modeling-tile || true
 docker rm otm-modeling-tile || true
 
 MODELING_TILE_HOME=/opt/otm-modeling-tile
+DATAHUB_AWS_PROFILE=otm-test
+printf "Tiles will be requested using the $DATAHUB_AWS_PROFILE AWS profile\n"
 
 cp $PWD/../../target/scala-2.10/otm-modeling-tile-assembly-0.0.1.jar $PWD/home/otm-modeling-tile.jar
 
@@ -20,6 +22,7 @@ docker run \
   --publish 8777:8777 \
   --volume $HOME/.aws:/root/.aws:ro \
   --volume $PWD/home/:$MODELING_TILE_HOME/ \
+  --env AWS_PROFILE=$DATAHUB_AWS_PROFILE \
   --log-driver syslog \
   -w $MODELING_TILE_HOME \
   --entrypoint $MODELING_TILE_HOME/docker-entrypoint.sh \
