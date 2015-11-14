@@ -25,11 +25,13 @@ docker run \
   --env AWS_PROFILE=$DATAHUB_AWS_PROFILE \
   --log-driver syslog \
   -w $MODELING_TILE_HOME \
-  --entrypoint $MODELING_TILE_HOME/docker-entrypoint.sh \
-  quay.io/azavea/spark:latest
+  quay.io/azavea/spark:latest \
+  /opt/spark/bin/spark-submit \
+  --master local[*] \
+  otm-modeling-tile.jar 2>&1
 
 printf "Wait For Service Startup\n"
-sleep 5
+sleep 7
 
 printf "Get Class Breaks\n"
 curl -d 'bbox=-13193642.578247702,3977047.2455633273,-13100389.403739786,4039419.8606440313&layers=nlcd-wm-ext-tms&weights=2&numBreaks=10&srid=3857' -X POST "http://localhost:8777/gt/breaks"
