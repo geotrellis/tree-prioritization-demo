@@ -1,12 +1,16 @@
 package org.opentreemap.modeling
 
-import org.apache.spark._
+import org.apache.avro._
 
+import org.apache.spark._
 import geotrellis.raster._
 import geotrellis.vector._
 import geotrellis.services._
 import geotrellis.spark._
+import geotrellis.spark.io.Intersects
+import geotrellis.spark.io.index._
 import geotrellis.spark.io.s3._
+import geotrellis.spark.io.json._
 import geotrellis.spark.tiling._
 import geotrellis.raster.resample._
 import geotrellis.raster.render._
@@ -20,8 +24,13 @@ trait TileServiceLogic {
     t1.combine(t2)(_ + _)
   }
 
+  def getMetadata(implicit sc: SparkContext, tileReader: S3TileReader[SpatialKey, Tile], layerId: LayerId): RasterMetaData =
+     tileReader
+      .attributeStore
+      .readLayerAttributes[S3LayerHeader, RasterMetaData, KeyBounds[SpatialKey], KeyIndex[SpatialKey], Schema](layerId)._2
+
   def weightedOverlay(implicit sc: SparkContext,
-                      catalog: S3RasterCatalog,
+                      tileReader: S3TileReader[SpatialKey, Tile],
                       layers:Seq[String],
                       weights:Seq[Int],
                       z:Int,
@@ -34,19 +43,21 @@ trait TileServiceLogic {
         // DEFAULT_ZOOM
         val tile =
           if (z <= DEFAULT_ZOOM) {
-            val reader = catalog.tileReader[SpatialKey]((layer, z))
+            val reader = tileReader.read(layer, z)
             reader(SpatialKey(x, y))
           } else {
-            val layerId = LayerId(layer, DEFAULT_ZOOM)
-            val reader = catalog.tileReader[SpatialKey](layerId)
-            val rmd = catalog.getLayerMetadata(layerId).rasterMetaData
-            val layoutLevel = ZoomedLayoutScheme().levelFor(z)
-            val mapTransform = MapKeyTransform(rmd.crs, layoutLevel.tileLayout.layoutCols, layoutLevel.tileLayout.layoutRows)
-            val targetExtent = mapTransform(x, y)
-            val gb @ GridBounds(nx, ny, _, _) = rmd.mapTransform(targetExtent)
-            val sourceExtent = rmd.mapTransform(nx, ny)
-            val largerTile = reader(SpatialKey(nx, ny))
-            largerTile.resample(sourceExtent, RasterExtent(targetExtent, 256, 256))
+            // TODO: Fix this to work with the latest API
+            throw new Exception(s"Zooming above $DEFAULT_ZOOM is not supported")
+            // val layerId = LayerId(layer, DEFAULT_ZOOM)
+            // val reader = tileReader.read(layerId)
+            // val rmd = getMetadata(sc, tileReader, layerId)
+            // val layoutLevel = ZoomedLayoutScheme(rmd.crs).levelForZoom(rmd.extent, z)
+            // val mapTransform = MapKeyTransform(rmd.crs, layoutLevel.tileLayout.layoutCols, layoutLevel.tileLayout.layoutRows)
+            // val targetExtent = mapTransform(x, y)
+            // val gb @ GridBounds(nx, ny, _, _) = rmd.mapTransform(targetExtent)
+            // val sourceExtent = rmd.mapTransform(nx, ny)
+            // val largerTile = reader(SpatialKey(nx, ny))
+            // largerTile.resample(sourceExtent, RasterExtent(targetExtent, 256, 256))
           }
         // Convert Byte tiles to Int so that math operations do not overflow
         tile.convert(TypeInt).map(_ * weight)
@@ -55,14 +66,14 @@ trait TileServiceLogic {
   }
 
   def weightedOverlay(implicit sc: SparkContext,
-                      catalog: S3RasterCatalog,
+                      catalog: S3LayerReader[SpatialKey, Tile, RasterRDD[SpatialKey]],
                       layers:Seq[String],
                       weights:Seq[Int],
                       bounds:Extent): RasterRDD[SpatialKey] = {
     layers
       .zip(weights)
       .map { case (layer, weight) =>
-        val base = catalog.query[SpatialKey]((layer, BREAKS_ZOOM))
+        val base = catalog.query((layer, BREAKS_ZOOM))
         val intersected = base.where(Intersects(bounds))
         val rdd = intersected.toRDD
         // Convert Byte RDD to Int so that math operations do not overflow

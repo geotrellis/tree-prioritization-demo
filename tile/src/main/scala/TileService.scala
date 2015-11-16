@@ -1,5 +1,7 @@
 package org.opentreemap.modeling
 
+import org.apache.avro._
+
 import geotrellis.raster._
 import geotrellis.spark.op.stats._
 import geotrellis.spark.utils._
@@ -151,7 +153,7 @@ trait TileService extends HttpService
                   srid
                 )
 
-                val unmasked = weightedOverlay(implicitly, catalog, layers, weights, z, x, y)
+                val unmasked = weightedOverlay(implicitly, tileReader, layers, weights, z, x, y)
                 val masked = applyTileMasks(
                   unmasked,
                   polyTileMask(polys),
