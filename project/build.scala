@@ -81,7 +81,7 @@ object OTMModelingBuild extends Build {
   )
 
   lazy val root: Project =
-    Project("otm-modeling", file(".")).aggregate(summary, tile)
+    Project("otm-modeling", file(".")).aggregate(summary, tile, combined)
 
   lazy val rootSettings =
     Seq(
@@ -137,4 +137,17 @@ object OTMModelingBuild extends Build {
     Seq(
       name := "otm-modeling-tile"
     ) ++ rootSettings
+
+  lazy val combinedSettings =
+    Seq(
+      name := "otm-modeling",
+      mainClass := Some("org.opentreemap.modeling.Main")
+    ) ++ rootSettings
+
+  lazy val combined = Project("combined",  file("combined"))
+    .settings(combinedSettings:_*)
+    .dependsOn(common)
+    .dependsOn(tile)
+    .dependsOn(summary)
+
 }

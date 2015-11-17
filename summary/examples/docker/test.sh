@@ -23,7 +23,7 @@ printf "Wait For Service Startup\n"
 sleep 3
 
 printf "Submit Jar\n"
-curl --silent --data-binary @../../target/scala-2.10/otm-modeling-summary-assembly-0.0.1.jar 'http://localhost:8090/jars/summary'
+curl --silent --data-binary @../../../combined/target/scala-2.10/otm-modeling-assembly-0.0.1.jar 'http://localhost:8090/jars/summary'
 
 printf "\nCreate Context\n"
 curl --silent --data "" 'http://localhost:8090/contexts/summary-context'
