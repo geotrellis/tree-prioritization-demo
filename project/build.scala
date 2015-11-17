@@ -10,6 +10,8 @@ object Version {
   def either(environmentVariable: String, default: String): String =
     Properties.envOrElse(environmentVariable, default)
 
+  val modeling     = "0.0.1"
+
   val geotools     = "8.0-M4"
   val geotrellis   = "0.10.0-97834e6"
   val scala        = "2.10.5"
@@ -37,7 +39,7 @@ object OTMModelingBuild extends Build {
     super.settings ++
   Seq(
     shellPrompt := { s => Project.extract(s).currentProject.id + " > " },
-    version := "0.0.1",
+    version := Version.modeling,
     scalaVersion := Version.scala,
     organization := "org.opentreemap.modeling",
 
