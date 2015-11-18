@@ -19,9 +19,8 @@ object PointValuesJob
   override def runJob(sc: SparkContext, config: Config): Any = {
     val startTime = System.currentTimeMillis
     val params = PointValuesJobConfig(config)
-    val tileReader = catalog(sc).tileReader[SpatialKey](params.layerId)
-    val rasterMetaData = catalog(sc).getLayerMetadata(params.layerId).rasterMetaData
-    val values = getValuesAtPoints(tileReader, rasterMetaData)(params.pointsWithIds)
+    val reader = tileReader(sc).read(params.layerId)
+    val values = getValuesAtPoints(reader, metadata(sc, params.layerId))(params.pointsWithIds)
     val coords = values map {
       case (id, point, value) => Vector(id, point.x, point.y, value)
     }

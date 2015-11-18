@@ -11,7 +11,7 @@ object Version {
     Properties.envOrElse(environmentVariable, default)
 
   val geotools     = "8.0-M4"
-  val geotrellis   = "0.10.0-SNAPSHOT"
+  val geotrellis   = "0.10.0-97834e6"
   val scala        = "2.10.5"
   val scalatest    = "2.2.1"
   val spray        = "1.3.2"
@@ -24,12 +24,12 @@ object Version {
 object OTMModelingBuild extends Build {
   val resolutionRepos = Seq(
     "Local Maven Repository"  at "file://" + Path.userHome.absolutePath + "/.m2/repository",
-    Resolver.sonatypeRepo("snapshots"),
     "Typesafe Repo"           at "http://repo.typesafe.com/typesafe/releases/",
     "spray repo"              at "http://repo.spray.io/",
     "Geotools" at "http://download.osgeo.org/webdav/geotools/",
     "Scalaz Bintray Repo" at "https://dl.bintray.com/scalaz/releases",
-    "Job Server Bintray" at "https://dl.bintray.com/spark-jobserver/maven"
+    "Job Server Bintray" at "https://dl.bintray.com/spark-jobserver/maven",
+    Resolver.bintrayRepo("azavea", "geotrellis")
   )
 
   // Default settings
