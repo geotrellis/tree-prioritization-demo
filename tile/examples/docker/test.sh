@@ -13,7 +13,7 @@ MODELING_TILE_HOME=/opt/otm-modeling-tile
 DATAHUB_AWS_PROFILE=otm-test
 printf "Tiles will be requested using the $DATAHUB_AWS_PROFILE AWS profile\n"
 
-cp $PWD/../../target/scala-2.10/otm-modeling-tile-assembly-0.0.1.jar $PWD/home/otm-modeling-tile.jar
+cp $PWD/../../../combined/target/scala-2.10/otm-modeling-assembly-0.0.1.jar $PWD/home/otm-modeling.jar
 
 printf "Run Container\n"
 docker run \
@@ -28,7 +28,7 @@ docker run \
   quay.io/azavea/spark:latest \
   /opt/spark/bin/spark-submit \
   --master local[*] \
-  otm-modeling-tile.jar 2>&1
+  otm-modeling.jar 2>&1
 
 printf "Wait For Service Startup\n"
 sleep 7
