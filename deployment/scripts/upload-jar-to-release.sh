@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Check if HEAD is the same as the most recent tag and, if so, create
 # a Github release for that tag and upload the compiled jar
