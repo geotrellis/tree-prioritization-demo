@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Write the tag name and sha1 of the most recent tag to stdout
 # Reference: https://git-scm.com/docs/git-for-each-ref

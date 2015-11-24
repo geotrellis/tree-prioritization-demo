@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Write the name of the latest tag to stdout if HEAD is equal to the
 # latest tag, else exit 1
