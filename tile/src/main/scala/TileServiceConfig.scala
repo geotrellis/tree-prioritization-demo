@@ -2,7 +2,7 @@ package org.opentreemap.modeling
 
 import com.typesafe.config.ConfigFactory
 
-object ServiceConfig {
+object TileServiceConfig {
   private val config = ConfigFactory.load()
 
   private def intFromEnvOrConfig(envVar: String, configKey: String): Int = {
@@ -25,4 +25,3 @@ object ServiceConfig {
   val staticPath = stringFromEnvOrConfig("STATIC_PATH", "server.static-path")
   val featuresPath = stringFromEnvOrConfig("FEATURES_PATH", "server.features-path")
 }
-

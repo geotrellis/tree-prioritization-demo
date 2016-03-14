@@ -2,12 +2,16 @@
 
 set -e
 
-rm -rf target && mkdir target
+rm -rf tile/target
+rm -rf summary/target
 ./sbt test assembly
 
 rm -rf build && mkdir -p build/modeling/data
-cp `ls target/*.jar` build/modeling/modeling.jar
-cp -r data build/modeling
+cp `ls tile/target/scala-2.10/*.jar` build/modeling/modeling.jar
+cp -r tile/data build/modeling
+
+cp `ls summary/target/scala-2.10/*.jar` build/modeling/modeling-summary.jar
+
 cd build
 tar czf modeling.tar.gz modeling
 rm -rf modeling
