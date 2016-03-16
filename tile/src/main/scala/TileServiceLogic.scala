@@ -46,18 +46,16 @@ trait TileServiceLogic {
             val reader = tileReader.read(layer, z)
             reader(SpatialKey(x, y))
           } else {
-            // TODO: Fix this to work with the latest API
-            throw new Exception(s"Zooming above $DEFAULT_ZOOM is not supported")
-            // val layerId = LayerId(layer, DEFAULT_ZOOM)
-            // val reader = tileReader.read(layerId)
-            // val rmd = getMetadata(sc, tileReader, layerId)
-            // val layoutLevel = ZoomedLayoutScheme(rmd.crs).levelForZoom(rmd.extent, z)
-            // val mapTransform = MapKeyTransform(rmd.crs, layoutLevel.tileLayout.layoutCols, layoutLevel.tileLayout.layoutRows)
-            // val targetExtent = mapTransform(x, y)
-            // val gb @ GridBounds(nx, ny, _, _) = rmd.mapTransform(targetExtent)
-            // val sourceExtent = rmd.mapTransform(nx, ny)
-            // val largerTile = reader(SpatialKey(nx, ny))
-            // largerTile.resample(sourceExtent, RasterExtent(targetExtent, 256, 256))
+            val layerId = LayerId(layer, DEFAULT_ZOOM)
+            val reader = tileReader.read(layerId)
+            val rmd = getMetadata(sc, tileReader, layerId)
+            val layoutLevel = ZoomedLayoutScheme(rmd.crs).levelForZoom(rmd.extent, z)
+            val mapTransform = MapKeyTransform(rmd.crs, layoutLevel.layout.layoutCols, layoutLevel.layout.layoutRows)
+            val targetExtent = mapTransform(x, y)
+            val gb @ GridBounds(nx, ny, _, _) = rmd.mapTransform(targetExtent)
+            val sourceExtent = rmd.mapTransform(nx, ny)
+            val largerTile = reader(SpatialKey(nx, ny))
+            largerTile.resample(sourceExtent, RasterExtent(targetExtent, 256, 256))
           }
         // Convert Byte tiles to Int so that math operations do not overflow
         tile.convert(TypeInt).map(_ * weight)
