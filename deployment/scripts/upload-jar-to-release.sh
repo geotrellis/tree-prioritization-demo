@@ -40,8 +40,8 @@ then
     fi
 
     # Upload the combined project assembly to the release
-    outputjar="combined/target/scala-2.10/otm-modeling-assembly-$tagname.jar"
-    releasejarname="otm-modeling-$tagname.jar"
+    outputjar="combined/target/scala-2.10/otm-modeling-$tagname.jar"
+    releasejarname=$(basename $outputjar)
 
     echo "Uploading $releasejarname" >&2
     github-release upload --tag $tagname --name $releasejarname --file $outputjar

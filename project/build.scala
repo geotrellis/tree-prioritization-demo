@@ -141,6 +141,7 @@ object OTMModelingBuild extends Build {
   lazy val combinedSettings =
     Seq(
       name := "otm-modeling",
+      jarName in assembly := s"otm-modeling-${Version.modeling}.jar",
       mainClass := Some("org.opentreemap.modeling.Main")
     ) ++ rootSettings
 
