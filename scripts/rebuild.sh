@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Usage:
-# $ SJS_HOST=localhost SJS_PORT=8090 ./scripts/rebuild.sh
+# $ SJS_HOST=33.33.34.48 SJS_PORT=8090 ./scripts/rebuild.sh
 
 # 1. Build the combined modeling assembly JAR
 # 2. POST the JAR to Spark Job Server
@@ -14,6 +14,9 @@ set -x
 
 vagrantvm="modeling"
 context="modeling"
+
+: "${SJS_HOST?You need to set SJS_HOST. To connect to the Vagrant VM \"SJS_HOST=33.33.34.48\"}"
+: "${SJS_PORT?You need to set SJS_PORT. To connect to the Vagrant VM \"SJS_PORT=8090\"}"
 sjs="$SJS_HOST:$SJS_PORT"
 
 # remove any previously built versions of the JAR
