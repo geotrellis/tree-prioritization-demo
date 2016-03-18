@@ -17,7 +17,7 @@ context="modeling"
 sjs="$SJS_HOST:$SJS_PORT"
 
 # remove any previously built versions of the JAR
-rm combined/target/scala-2.10/*.jar
+rm -f combined/target/scala-2.10/*.jar
 # Build the combined JAR
 ./sbt assembly
 # Get the name of the combined assembly. Using `head` when getting the
