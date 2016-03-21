@@ -1,10 +1,11 @@
-*~
 project/boot
 project/plugins/project
 project/plugins/target
 project/target
 target
 build
+combined
+data
 .ensime
 TAGS
 \#*#
@@ -13,8 +14,6 @@ TAGS
 .lib
 *.aux.xml
 *.jar
-data/catalog/*.json
-data/catalog/*.arg
 Thumbs.db
 *.swp
 
