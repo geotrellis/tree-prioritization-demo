@@ -9,8 +9,12 @@ object HistogramJobConfig extends VectorHandling {
     val polyMaskParam = config.getString("input.polyMask")
     val zoom = config.getInt("input.zoom")
     val layerId = LayerId(config.getString("input.layer"), zoom)
-    // TOOD: Read CRS from config
-    new HistogramJobConfig(layerId, parsePolyMaskParam(polyMaskParam))
+    val srid = config.getInt("input.srid")
+    val polys = reprojectPolygons(
+      parsePolyMaskParam(polyMaskParam),
+      srid
+    )
+    new HistogramJobConfig(layerId, polys)
   }
 }
 
