@@ -74,6 +74,8 @@ object TileGetter {
     }
   }
 
+  val NLCD_MAX_ZOOM = 11
+
   def getMaskTiles(implicit sc:SparkContext,
                    tileReader: S3TileReader[SpatialKey, Tile],
                    layerMask: Option[LayerMaskType],
@@ -81,8 +83,7 @@ object TileGetter {
     layerMask match {
       case Some(masks: LayerMaskType) =>
         masks map { case (layer, values) =>
-          val reader = tileReader.read((layer, z))
-          val tile = reader.read(SpatialKey(x, y))
+          val tile = getTileWithZoom(sc, tileReader, layer, z, x, y, NLCD_MAX_ZOOM)
           tile.map { z =>
             if (values contains z) z
             else NODATA
