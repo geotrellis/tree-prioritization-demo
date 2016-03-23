@@ -185,7 +185,7 @@ class TileServiceLogicSpec
 
   test("Layer mask") {
     val parsedLayerMask = Map("Raster1" -> Array(1))
-    val layerMaskArgs = logic.parseLayerMaskParam(Some(parsedLayerMask), rasterExtent)
+    val layerMaskArgs = logic.getMasksFromCatalog(Some(parsedLayerMask), rasterExtent)
     val layerMask = logic.layerMask(layerMaskArgs) _
 
     val rs = logic.createRasterSource("Raster2", rasterExtent)
@@ -204,7 +204,7 @@ class TileServiceLogicSpec
 
   test("Layer mask from string") {
     val parsedLayerMask = Map("Raster1" -> Array(1))
-    val layerMaskArgs = logic.parseLayerMaskParam(Some(parsedLayerMask), rasterExtent)
+    val layerMaskArgs = logic.getMasksFromCatalog(Some(parsedLayerMask), rasterExtent)
     val layerMask = logic.layerMask(layerMaskArgs) _
 
     val rs = logic.createRasterSource("Raster2", rasterExtent)
@@ -223,7 +223,7 @@ class TileServiceLogicSpec
 
   test("Combine polygon and layer mask") {
     val parsedLayerMask = Some(Map("Raster1" -> Array(1)))
-    val layerMaskArgs = logic.parseLayerMaskParam(parsedLayerMask, rasterExtent)
+    val layerMaskArgs = logic.getMasksFromCatalog(parsedLayerMask, rasterExtent)
     val layerMask = logic.layerMask(layerMaskArgs) _
 
     val poly: Polygon = Rectangle()
@@ -252,7 +252,7 @@ class TileServiceLogicSpec
     //                 AND cells marked "2" OR "4" in Raster5)
     val parsedLayerMask = Map("Raster3" -> Array(1),
                               "Raster5" -> Array(2, 4))
-    val layerMaskArgs = logic.parseLayerMaskParam(Some(parsedLayerMask), rasterExtent)
+    val layerMaskArgs = logic.getMasksFromCatalog(Some(parsedLayerMask), rasterExtent)
     val layerMask = logic.layerMask(layerMaskArgs) _
 
     val rs = logic.createRasterSource("Raster4", rasterExtent)
@@ -296,7 +296,7 @@ class TileServiceLogicSpec
 
   test("Combine polygon, layer, and thresold mask") {
     val parsedLayerMask = Some(Map("Raster4" -> Array(2, 3, 4)))
-    val layerMaskArgs = logic.parseLayerMaskParam(parsedLayerMask, rasterExtent)
+    val layerMaskArgs = logic.getMasksFromCatalog(parsedLayerMask, rasterExtent)
     val layerMask = logic.layerMask(layerMaskArgs) _
 
     val poly: Polygon = Rectangle()
