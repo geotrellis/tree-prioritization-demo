@@ -15,7 +15,9 @@ trait TileLayerMasking {
   def layerTileMask(layerMasks: Iterable[Tile])(tile: Tile): Tile = {
     if (layerMasks.size > 0) {
       layerMasks.foldLeft(tile) { (acc, mask) =>
-        acc.combine(mask) { (z, maskValue) =>
+        //acc.combine(mask) { (z, maskValue) =>
+        // TODO: restore above line after switching to GeoTrellis 0.10
+        acc.combine(mask.convert(TypeInt).toArrayTile) { (z, maskValue) =>
           if (isData(maskValue)) z
           else NODATA
         }
