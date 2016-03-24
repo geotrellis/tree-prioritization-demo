@@ -11,23 +11,19 @@ import geotrellis.spark.io.Intersects
 import geotrellis.spark.io.index._
 import geotrellis.spark.io.s3._
 import geotrellis.spark.io.json._
-import geotrellis.spark.tiling._
-import geotrellis.raster.resample._
+import geotrellis.spark.tiling._ //kill?
+import geotrellis.raster.resample._ //kill?
 import geotrellis.raster.render._
 import geotrellis.spark.op.local._
 
-trait TileServiceLogic {
-  val DEFAULT_ZOOM = 11
+trait TileServiceLogic
+{
+  val DATA_TILE_MAX_ZOOM = 11
   val BREAKS_ZOOM = 8
 
   def addTiles(t1: Tile, t2: Tile): Tile = {
     t1.combine(t2)(_ + _)
   }
-
-  def getMetadata(implicit sc: SparkContext, tileReader: S3TileReader[SpatialKey, Tile], layerId: LayerId): RasterMetaData =
-     tileReader
-      .attributeStore
-      .readLayerAttributes[S3LayerHeader, RasterMetaData, KeyBounds[SpatialKey], KeyIndex[SpatialKey], Schema](layerId)._2
 
   def weightedOverlay(implicit sc: SparkContext,
                       tileReader: S3TileReader[SpatialKey, Tile],
@@ -36,28 +32,11 @@ trait TileServiceLogic {
                       z:Int,
                       x:Int,
                       y:Int): Tile = {
+    // TODO: Handle layers with different pyramids instead of using DATA_TILE_MAX_ZOOM
     layers
       .zip(weights)
       .map { case (layer, weight) =>
-        // TODO: Handle layers with different pyramids instead of using
-        // DEFAULT_ZOOM
-        val tile =
-          if (z <= DEFAULT_ZOOM) {
-            val reader = tileReader.read(layer, z)
-            reader(SpatialKey(x, y))
-          } else {
-            val layerId = LayerId(layer, DEFAULT_ZOOM)
-            val reader = tileReader.read(layerId)
-            val rmd = getMetadata(sc, tileReader, layerId)
-            val layoutLevel = ZoomedLayoutScheme(rmd.crs).levelForZoom(rmd.extent, z)
-            val mapTransform = MapKeyTransform(rmd.crs, layoutLevel.layout.layoutCols, layoutLevel.layout.layoutRows)
-            val targetExtent = mapTransform(x, y)
-            val gb @ GridBounds(nx, ny, _, _) = rmd.mapTransform(targetExtent)
-            val sourceExtent = rmd.mapTransform(nx, ny)
-            val largerTile = reader(SpatialKey(nx, ny))
-            largerTile.resample(sourceExtent, RasterExtent(targetExtent, 256, 256))
-          }
-        // Convert Byte tiles to Int so that math operations do not overflow
+        val tile = TileGetter.getTileWithZoom(sc, tileReader, layer, z, x, y, DATA_TILE_MAX_ZOOM)
         tile.convert(TypeInt).map(_ * weight)
     }
       .reduce(addTiles)

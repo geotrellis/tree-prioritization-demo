@@ -98,7 +98,7 @@ trait TileService extends HttpService
                    have interpolated values that don't match the
                    original, discrete values.
                    */
-                  //layerMask(parseLayerMaskParam(implicitly, parsedLayerMask, extent, ModelingServiceSparkActor.BREAKS_ZOOM))
+                  //layerMask(getMasksFromCatalog(implicitly, parsedLayerMask, extent, ModelingServiceSparkActor.BREAKS_ZOOM))
                 )
 
                 val breaks = model.classBreaks(numBreaks)
@@ -157,7 +157,7 @@ trait TileService extends HttpService
                 val masked = applyTileMasks(
                   unmasked,
                   polyTileMask(polys, z, x, y),
-                  layerTileMask(parseLayerTileMaskParam(implicitly, parsedLayerMask, z, x, y)),
+                  layerTileMask(TileGetter.getMaskTiles(implicitly, tileReader, parsedLayerMask, z, x, y)),
                   thresholdTileMask(threshold)
                 )
 
