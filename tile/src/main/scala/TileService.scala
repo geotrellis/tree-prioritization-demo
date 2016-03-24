@@ -156,7 +156,7 @@ trait TileService extends HttpService
                 val unmasked = weightedOverlay(implicitly, tileReader, layers, weights, z, x, y)
                 val masked = applyTileMasks(
                   unmasked,
-                  polyTileMask(polys),
+                  polyTileMask(polys, z, x, y),
                   layerTileMask(parseLayerTileMaskParam(implicitly, parsedLayerMask, z, x, y)),
                   thresholdTileMask(threshold)
                 )
