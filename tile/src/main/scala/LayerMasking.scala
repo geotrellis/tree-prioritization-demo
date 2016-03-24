@@ -4,14 +4,17 @@ import geotrellis.raster._
 import geotrellis.vector._
 import geotrellis.spark._
 import geotrellis.spark.op.local._
+import geotrellis.spark.op.local.spatial._
 
 trait LayerMasking {
 
   /** Combine multiple polygons into a single mask raster. */
   def polyMask(polyMasks: Iterable[Polygon])(model: RasterRDD[SpatialKey]): RasterRDD[SpatialKey] = {
-    // TODO: Pull in an updated Geotrellis when this is complete and merged
-    // https://github.com/zifeo/geotrellis/commit/d63608cb7d77c0358a5dd8118f6289d6d9366799
-    model
+    if (polyMasks.size > 0) {
+      model.mask(polyMasks)
+    } else {
+      model
+    }
   }
 
   /** Combine multiple rasters into a single raster.
