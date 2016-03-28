@@ -9,7 +9,7 @@ import geotrellis.vector.reproject._
 trait PointValuesLogic {
 
   /** Return raster values for a sequence of WebMercator points. */
-  def getValuesAtPoints(tileReader: SpatialKey => Tile, metadata: RasterMetaData)(pointsWithIds: Seq[(String, Point)]) : Seq[(String, Point, Int)] = {
+  def getValuesAtPoints(tileReader: SpatialKey => Tile, metadata: TileLayerMetadata[SpatialKey])(pointsWithIds: Seq[(String, Point)]) : Seq[(String, Point, Int)] = {
 
     val keyedPoints: Map[SpatialKey, Seq[(String, Point)]] =
       pointsWithIds

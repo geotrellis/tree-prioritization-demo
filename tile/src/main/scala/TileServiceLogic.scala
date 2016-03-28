@@ -5,8 +5,8 @@ import org.apache.avro._
 import org.apache.spark._
 import geotrellis.raster._
 import geotrellis.vector._
-import geotrellis.services._
 import geotrellis.spark._
+import geotrellis.spark.io._
 import geotrellis.spark.io.Intersects
 import geotrellis.spark.io.index._
 import geotrellis.spark.io.s3._
@@ -14,7 +14,7 @@ import geotrellis.spark.io.json._
 import geotrellis.spark.tiling._ //kill?
 import geotrellis.raster.resample._ //kill?
 import geotrellis.raster.render._
-import geotrellis.spark.op.local._
+import geotrellis.spark.mapalgebra.local._
 
 trait TileServiceLogic
 {
@@ -37,34 +37,35 @@ trait TileServiceLogic
       .zip(weights)
       .map { case (layer, weight) =>
         val tile = TileGetter.getTileWithZoom(sc, tileReader, layer, z, x, y, DATA_TILE_MAX_ZOOM)
-        tile.convert(TypeInt).map(_ * weight)
-    }
+        tile.convert(IntCellType).map(_ * weight)
+      }
       .reduce(addTiles)
   }
 
   def weightedOverlay(implicit sc: SparkContext,
-                      catalog: S3LayerReader[SpatialKey, Tile, RasterRDD[SpatialKey]],
+                      catalog: S3LayerReader,
                       layers:Seq[String],
                       weights:Seq[Int],
-                      bounds:Extent): RasterRDD[SpatialKey] = {
-    layers
+                      bounds:Extent): TileLayerRDD[SpatialKey] = {
+    val rdds = layers
       .zip(weights)
       .map { case (layer, weight) =>
-        val base = catalog.query((layer, BREAKS_ZOOM))
+        val base = catalog.query[SpatialKey, Tile, TileLayerMetadata[SpatialKey]]((layer, BREAKS_ZOOM))
         val intersected = base.where(Intersects(bounds))
-        val rdd = intersected.toRDD
+        val rdd = intersected.result
         // Convert Byte RDD to Int so that math operations do not overflow
-        rdd.convert(TypeInt).localMultiply(weight)
+        rdd.convert(IntCellType).withContext {
+          _.localMultiply(weight)
+        }
       }
-      .localAdd
+    val weightedOverlay = rdds.localAdd
+    ContextRDD(weightedOverlay, rdds.head.metadata)
   }
 
   def renderTile(tile: Tile, breaks: Seq[Int], colorRamp: String): Png = {
-    val ramp = {
-      val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
-      cr.interpolate(breaks.length)
-    }
-    tile.renderPng(ramp.toArray, breaks.toArray)
+    val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
+    val map = ColorMap(breaks.toArray, cr)
+    tile.renderPng(map)
   }
 
 }

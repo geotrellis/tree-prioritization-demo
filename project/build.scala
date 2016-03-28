@@ -30,8 +30,7 @@ object OTMModelingBuild extends Build {
     "spray repo"              at "http://repo.spray.io/",
     "Geotools" at "http://download.osgeo.org/webdav/geotools/",
     "Scalaz Bintray Repo" at "https://dl.bintray.com/scalaz/releases",
-    "Job Server Bintray" at "https://dl.bintray.com/spark-jobserver/maven",
-    Resolver.bintrayRepo("azavea", "geotrellis")
+    "Job Server Bintray" at "https://dl.bintray.com/spark-jobserver/maven"
   )
 
   // Default settings
@@ -95,14 +94,11 @@ object OTMModelingBuild extends Build {
       javaOptions += "-Djava.library.path=/usr/local/lib",
 
       libraryDependencies ++= Seq(
-        "com.azavea.geotrellis" %% "geotrellis-engine" % Version.geotrellis,
-        "com.azavea.geotrellis" %% "geotrellis-services" % Version.geotrellis,
         "com.azavea.geotrellis" %% "geotrellis-spark" % Version.geotrellis,
-        "com.azavea.geotrellis" %% "geotrellis-testkit" % Version.geotrellis % "test",
+        "com.azavea.geotrellis" %% "geotrellis-s3" % Version.geotrellis,
         "io.spray" %% "spray-routing" % Version.spray,
         "io.spray" %% "spray-json" % Version.sprayJson,
         "io.spray" %% "spray-can" % Version.spray,
-        "org.scalatest" %% "scalatest" % Version.scalatest % "test",
         "org.apache.spark" %% "spark-core" % Version.spark % "provided",
         "org.apache.hadoop" % "hadoop-client" % Version.hadoop % "provided"
       ),

@@ -7,9 +7,9 @@ import geotrellis.raster.resample._
 import geotrellis.spark._
 import geotrellis.spark.io.Intersects
 import geotrellis.spark.io.index._
-import geotrellis.spark.io.json._
+import geotrellis.spark.io._
 import geotrellis.spark.io.s3.{S3LayerReader, S3TileReader, S3LayerHeader}
-import geotrellis.spark.op.local._
+import geotrellis.spark.mapalgebra.local._
 import geotrellis.spark.tiling._
 import geotrellis.vector._
 
@@ -18,10 +18,10 @@ import org.apache.spark._
 object TileGetter {
   import ModelingTypes._
 
-  def _getMetadata(implicit sc: SparkContext, tileReader: S3TileReader[SpatialKey, Tile], layerId: LayerId): RasterMetaData =
-     tileReader
+  def _getMetadata(implicit sc: SparkContext, tileReader: S3TileReader[SpatialKey, Tile], layerId: LayerId): TileLayerMetadata[SpatialKey] =
+    tileReader
       .attributeStore
-      .readLayerAttributes[S3LayerHeader, RasterMetaData, KeyBounds[SpatialKey], KeyIndex[SpatialKey], Schema](layerId)._2
+      .readMetadata[TileLayerMetadata[SpatialKey]](layerId)
 
   def getTileWithZoom(implicit sc: SparkContext,
                       tileReader: S3TileReader[SpatialKey, Tile],
@@ -53,24 +53,24 @@ object TileGetter {
     * in the `layerMask` argument.
     */
   def getMasksFromCatalog(implicit sc:SparkContext,
-                          catalog: S3LayerReader[SpatialKey, Tile, RasterRDD[SpatialKey]],
+                          catalog: S3LayerReader,
                           layerMask: Option[LayerMaskType],
                           extent: Extent,
-    zoom: Int): Iterable[RasterRDD[SpatialKey]] = {
+    zoom: Int): Iterable[TileLayerRDD[SpatialKey]] = {
     layerMask match {
       case Some(masks: LayerMaskType) =>
-        masks map { case (layerName, values) =>
-          catalog.query((layerName, zoom))
-          .where(Intersects(extent))
-          .toRDD
-          .localMap { z =>
-            if (values contains z) z
-            else NODATA
+        masks map { case (layerName: String, values: Array[Int]) =>
+          catalog.query[SpatialKey, Tile, TileLayerMetadata[SpatialKey]]((layerName, zoom))
+            .where(Intersects(extent))
+            .result.withContext {
+              _.localMap { z =>
+                if (values contains z) z
+                else NODATA
+              }
+            }
           }
-
-        }
       case None =>
-        Seq[RasterRDD[SpatialKey]]()
+        Seq[TileLayerRDD[SpatialKey]]()
     }
   }
 
@@ -88,7 +88,6 @@ object TileGetter {
             if (values contains z) z
             else NODATA
           }
-
         }
       case None =>
         Seq[Tile]()
