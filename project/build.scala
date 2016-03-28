@@ -13,14 +13,14 @@ object Version {
   val modeling     = "0.0.1"
 
   val geotools     = "8.0-M4"
-  val geotrellis   = "0.10.0-97834e6"
-  val scala        = "2.10.5"
+  val geotrellis   = "0.10.0-RC3"
+  val scala        = "2.10.6"
   val scalatest    = "2.2.1"
   val spray        = "1.3.2"
   val sprayJson    = "1.2.6"
-  lazy val jobserver = either("SPARK_JOBSERVER_VERSION", "0.5.2")
+  lazy val jobserver = either("SPARK_JOBSERVER_VERSION", "0.6.1")
   lazy val hadoop  = either("SPARK_HADOOP_VERSION", "2.6.0")
-  lazy val spark   = either("SPARK_VERSION", "1.2.0")
+  lazy val spark   = either("SPARK_VERSION", "1.5.2")
 }
 
 object OTMModelingBuild extends Build {
