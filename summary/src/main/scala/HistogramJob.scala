@@ -1,25 +1,10 @@
 package org.opentreemap.modeling
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.Config
 import org.apache.spark._
-import org.apache.spark.SparkContext._
-
-import scala.collection.mutable
-import scala.util.Try
 
 import spark.jobserver._
-import spray.json._
-import spray.json.DefaultJsonProtocol._
-import spray.json.JsonParser.ParsingException
-
-import geotrellis.proj4._
-import geotrellis.raster._
-import geotrellis.raster.histogram._
-import geotrellis.raster.rasterize.{Rasterizer, Callback}
-import geotrellis.spark._
 import geotrellis.vector._
-import geotrellis.vector.io.json._
-import geotrellis.vector.reproject._
 
 object HistogramJob
     extends SparkJob

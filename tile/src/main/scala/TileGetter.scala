@@ -1,15 +1,10 @@
 package org.opentreemap.modeling
 
-import org.apache.avro._
-
 import geotrellis.raster._
-import geotrellis.raster.resample._
 import geotrellis.spark._
 import geotrellis.spark.io.Intersects
-import geotrellis.spark.io.index._
 import geotrellis.spark.io._
-import geotrellis.spark.io.s3.{S3LayerReader, S3TileReader, S3LayerHeader}
-import geotrellis.spark.mapalgebra.local._
+import geotrellis.spark.io.s3.{S3LayerReader, S3TileReader}
 import geotrellis.spark.tiling._
 import geotrellis.vector._
 

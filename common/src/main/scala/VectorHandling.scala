@@ -4,9 +4,7 @@ import geotrellis.proj4._
 import geotrellis.vector._
 import geotrellis.vector.io._
 import geotrellis.vector.io.json._
-import geotrellis.vector.reproject._
 
-import spray.json._
 import spray.json.JsonParser.ParsingException
 
 trait VectorHandling {

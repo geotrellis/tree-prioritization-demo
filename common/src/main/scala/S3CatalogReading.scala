@@ -1,23 +1,15 @@
 package org.opentreemap.modeling
 
-import java.io.File
-
-import org.apache.avro._
 import org.apache.spark._
 import geotrellis.raster._
 import geotrellis.spark._
-import geotrellis.spark.io.avro.codecs._
 import geotrellis.spark.io.Intersects
-import geotrellis.spark.io.index._
-import geotrellis.spark.io.json._
 import geotrellis.spark.io._
 import geotrellis.spark.io.s3._
 import geotrellis.vector._
 
 
 trait S3CatalogReading {
-  import ModelingTypes._
-
   final val bucket = "azavea-datahub"
   final val prefix = "catalog"
 

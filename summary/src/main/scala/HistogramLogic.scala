@@ -2,8 +2,6 @@ package org.opentreemap.modeling
 
 import geotrellis.raster.histogram._
 import geotrellis.spark._
-import geotrellis.spark.mapalgebra.zonal._
-import geotrellis.spark.summary.polygonal._
 import geotrellis.vector._
 
 trait HistogramLogic {

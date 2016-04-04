@@ -2,7 +2,7 @@ package org.opentreemap.modeling
 
 import geotrellis.spark._
 import geotrellis.vector._
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.Config
 
 object PointValuesJobConfig extends VectorHandling {
   def apply(config: Config) = {

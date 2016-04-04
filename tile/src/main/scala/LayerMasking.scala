@@ -3,7 +3,6 @@ package org.opentreemap.modeling
 import geotrellis.raster._
 import geotrellis.vector._
 import geotrellis.spark._
-import geotrellis.spark.mapalgebra.local._
 
 trait LayerMasking {
 

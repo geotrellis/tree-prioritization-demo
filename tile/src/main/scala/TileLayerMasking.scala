@@ -5,7 +5,6 @@ import scala.math.{Pi, pow}
 import geotrellis.raster._
 import geotrellis.raster.rasterize._
 import geotrellis.vector._
-import geotrellis.spark._
 
 trait TileLayerMasking {
 
