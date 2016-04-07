@@ -1,3 +1,7 @@
+/*
+
+  // TODO: Update tests to use TileLayerRDDs and Tiles rather than RasterSources
+
 package org.opentreemap.modeling.test
 
 import org.opentreemap.modeling._
@@ -25,9 +29,6 @@ class MockTileServiceLogic(sources: Map[String, Tile])
 class TileServiceLogicSpec
     extends UnitSpec {
 
-  // TODO: Update tests to use RasterRDDs and Tiles rather than RasterSources
-
-/*
   val n = NODATA
 
   // All test rasters are 1 tile with 5 x 5 cells.
@@ -321,5 +322,5 @@ class TileServiceLogicSpec
                 n, 5, 5, 5, n))))
     }
   }
- */
 }
+*/

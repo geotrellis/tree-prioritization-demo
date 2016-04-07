@@ -1,10 +1,8 @@
 package org.opentreemap.modeling
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.Config
 import org.apache.spark._
 import spark.jobserver._
-import geotrellis.spark._
-import geotrellis.vector._
 
 object PointValuesJob
     extends SparkJob

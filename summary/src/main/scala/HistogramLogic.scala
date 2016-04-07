@@ -2,18 +2,13 @@ package org.opentreemap.modeling
 
 import geotrellis.raster.histogram._
 import geotrellis.spark._
-import geotrellis.spark.op.zonal.summary._
 import geotrellis.vector._
 
 trait HistogramLogic {
-  def histogram(rdd: RasterRDD[SpatialKey], polyMask: Seq[Polygon]): Histogram = {
+  def histogram(rdd: TileLayerRDD[SpatialKey], polyMask: Seq[Polygon]): Histogram[Int] = {
     if (polyMask.size > 0) {
-      val histograms: Seq[Histogram] = polyMask map {
-        p => {
-          rdd.zonalHistogram(p)
-        }
-      }
-      FastMapHistogram.fromHistograms(histograms)
+      val multipolygon = MultiPolygon(polyMask)
+      rdd.polygonalHistogram(multipolygon)
     } else {
       null
     }

@@ -13,14 +13,14 @@ object Version {
   val modeling     = "0.0.1"
 
   val geotools     = "8.0-M4"
-  val geotrellis   = "0.10.0-97834e6"
-  val scala        = "2.10.5"
+  val geotrellis   = "0.10.0-RC3"
+  val scala        = "2.10.6"
   val scalatest    = "2.2.1"
   val spray        = "1.3.2"
   val sprayJson    = "1.2.6"
-  lazy val jobserver = either("SPARK_JOBSERVER_VERSION", "0.5.2")
+  lazy val jobserver = either("SPARK_JOBSERVER_VERSION", "0.6.1")
   lazy val hadoop  = either("SPARK_HADOOP_VERSION", "2.6.0")
-  lazy val spark   = either("SPARK_VERSION", "1.2.0")
+  lazy val spark   = either("SPARK_VERSION", "1.5.2")
 }
 
 object OTMModelingBuild extends Build {
@@ -30,8 +30,7 @@ object OTMModelingBuild extends Build {
     "spray repo"              at "http://repo.spray.io/",
     "Geotools" at "http://download.osgeo.org/webdav/geotools/",
     "Scalaz Bintray Repo" at "https://dl.bintray.com/scalaz/releases",
-    "Job Server Bintray" at "https://dl.bintray.com/spark-jobserver/maven",
-    Resolver.bintrayRepo("azavea", "geotrellis")
+    "Job Server Bintray" at "https://dl.bintray.com/spark-jobserver/maven"
   )
 
   // Default settings
@@ -95,14 +94,11 @@ object OTMModelingBuild extends Build {
       javaOptions += "-Djava.library.path=/usr/local/lib",
 
       libraryDependencies ++= Seq(
-        "com.azavea.geotrellis" %% "geotrellis-engine" % Version.geotrellis,
-        "com.azavea.geotrellis" %% "geotrellis-services" % Version.geotrellis,
         "com.azavea.geotrellis" %% "geotrellis-spark" % Version.geotrellis,
-        "com.azavea.geotrellis" %% "geotrellis-testkit" % Version.geotrellis % "test",
+        "com.azavea.geotrellis" %% "geotrellis-s3" % Version.geotrellis,
         "io.spray" %% "spray-routing" % Version.spray,
         "io.spray" %% "spray-json" % Version.sprayJson,
         "io.spray" %% "spray-can" % Version.spray,
-        "org.scalatest" %% "scalatest" % Version.scalatest % "test",
         "org.apache.spark" %% "spark-core" % Version.spark % "provided",
         "org.apache.hadoop" % "hadoop-client" % Version.hadoop % "provided"
       ),

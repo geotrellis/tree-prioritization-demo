@@ -3,13 +3,11 @@ package org.opentreemap.modeling
 import geotrellis.raster._
 import geotrellis.vector._
 import geotrellis.spark._
-import geotrellis.spark.op.local._
-import geotrellis.spark.op.local.spatial._
 
 trait LayerMasking {
 
   /** Combine multiple polygons into a single mask raster. */
-  def polyMask(polyMasks: Iterable[Polygon])(model: RasterRDD[SpatialKey]): RasterRDD[SpatialKey] = {
+  def polyMask(polyMasks: Iterable[Polygon])(model: TileLayerRDD[SpatialKey]): TileLayerRDD[SpatialKey] = {
     if (polyMasks.size > 0) {
       model.mask(polyMasks)
     } else {
@@ -21,13 +19,16 @@ trait LayerMasking {
     * The resulting raster will contain values from `model` only at
     * points that have values in every `layerMask`. (AND-like operation)
     */
-  def layerMask(layerMasks: Iterable[RasterRDD[SpatialKey]])(model: RasterRDD[SpatialKey]): RasterRDD[SpatialKey] = {
+
+  def layerMask(layerMasks: Iterable[TileLayerRDD[SpatialKey]])(model: TileLayerRDD[SpatialKey]): TileLayerRDD[SpatialKey] = {
     if (layerMasks.size > 0) {
       layerMasks.foldLeft(model) { (rdd, mask) =>
-        rdd.combineTiles(mask) { (rddTile, maskTile) =>
-          rddTile.combine(maskTile) { (z, maskValue) =>
-            if (isData(maskValue)) z
-            else NODATA
+        rdd.withContext {
+          _.join(mask).combineValues {
+            _.combine(_) { (z, maskValue) =>
+              if (isData(maskValue)) z
+              else NODATA
+            }
           }
         }
       }
@@ -37,11 +38,13 @@ trait LayerMasking {
   }
 
   /** Filter all values from `model` that are less than `threshold`. */
-  def thresholdMask(threshold: Int)(model: RasterRDD[SpatialKey]): RasterRDD[SpatialKey] = {
-    if (threshold > NODATA) {
-      model.localMap { z =>
-        if (z >= threshold) z
-        else NODATA
+  def thresholdMask(threshold: Int)(model: TileLayerRDD[SpatialKey]): TileLayerRDD[SpatialKey] = {
+    if (isData(threshold)) {
+      model.withContext {
+        _.localMap { z =>
+          if (z >= threshold) z
+          else NODATA
+        }
       }
     } else {
       model
@@ -49,7 +52,7 @@ trait LayerMasking {
   }
 
  /** Filter model by 1 or more masks. */
-  def applyMasks(model: RasterRDD[SpatialKey], masks: (RasterRDD[SpatialKey]) => RasterRDD[SpatialKey]*) = {
+  def applyMasks(model: TileLayerRDD[SpatialKey], masks: (TileLayerRDD[SpatialKey]) => TileLayerRDD[SpatialKey]*) = {
     masks.foldLeft(model) { (rdd, mask) =>
       mask(rdd)
     }

@@ -1,3 +1,6 @@
+/*
+  // TODO: Rewrite tests to use TileLayerRDDs
+
 package org.opentreemap.modeling.test
 
 import org.opentreemap.modeling._
@@ -12,10 +15,6 @@ import geotrellis.raster._
 import geotrellis.testkit.vector._
 
 class HistogramLogicSpec extends FunSuite {
-
-  // TODO: Rewrite tests to use RasterRDDs
-
-  /**************************************************
 
   test("Histogram") {
     val polyMask = Nil
@@ -60,6 +59,5 @@ class HistogramLogicSpec extends FunSuite {
         fail(message)
     }
   }
-
-  ****************************************/
 }
+*/

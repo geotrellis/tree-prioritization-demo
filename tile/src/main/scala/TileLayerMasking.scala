@@ -5,7 +5,6 @@ import scala.math.{Pi, pow}
 import geotrellis.raster._
 import geotrellis.raster.rasterize._
 import geotrellis.vector._
-import geotrellis.spark._
 
 trait TileLayerMasking {
 
@@ -52,8 +51,8 @@ trait TileLayerMasking {
     if (layerMasks.size > 0) {
       layerMasks.foldLeft(tile) { (acc, mask) =>
         //acc.combine(mask) { (z, maskValue) =>
-        // TODO: restore above line after switching to GeoTrellis 0.10
-        acc.combine(mask.convert(TypeInt).toArrayTile) { (z, maskValue) =>
+        // TODO: restore above line when NLCD dataset is revived, allowing easy testing
+        acc.combine(mask.convert(IntCellType).toArrayTile) { (z, maskValue) =>
           if (isData(maskValue)) z
           else NODATA
         }
@@ -64,7 +63,7 @@ trait TileLayerMasking {
   }
 
   def thresholdTileMask(threshold: Int)(tile: Tile): Tile = {
-    if (threshold > NODATA) {
+    if (isData(threshold)) {
       tile.map { z =>
         if (z >= threshold) z
         else NODATA

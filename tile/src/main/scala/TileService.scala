@@ -1,24 +1,17 @@
 package org.opentreemap.modeling
 
-import org.apache.avro._
-
 import geotrellis.raster._
-import geotrellis.spark.op.stats._
-import geotrellis.spark.utils._
+import geotrellis.spark.util.SparkUtils
 import geotrellis.vector._
-
 import org.apache.spark._
 
 import scala.concurrent._
-
 import spray.http.MediaTypes
 import spray.http.StatusCodes
 import spray.json._
 import spray.json.JsonParser.ParsingException
 import spray.routing.HttpService
 import spray.routing.ExceptionHandler
-
-import org.opentreemap.modeling._
 
 trait TileService extends HttpService
                      with TileServiceLogic
