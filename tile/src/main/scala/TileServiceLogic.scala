@@ -57,7 +57,7 @@ trait TileServiceLogic
 
   def renderTile(tile: Tile, breaks: Seq[Int], colorRamp: String): Png = {
     val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
-    val map = ColorMap(breaks.toArray, cr)
+    val map = ColorMap(breaks.toArray, cr).withBoundaryType(LessThanOrEqualTo)
     tile.renderPng(map)
   }
 
