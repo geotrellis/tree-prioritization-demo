@@ -4,7 +4,7 @@ import geotrellis.raster._
 import geotrellis.spark._
 import geotrellis.spark.io.Intersects
 import geotrellis.spark.io._
-import geotrellis.spark.io.s3.{S3LayerReader, S3TileReader}
+import geotrellis.spark.io.s3.{S3LayerReader, S3ValueReader}
 import geotrellis.spark.tiling._
 import geotrellis.vector._
 
@@ -13,24 +13,24 @@ import org.apache.spark._
 object TileGetter {
   import ModelingTypes._
 
-  def _getMetadata(implicit sc: SparkContext, tileReader: S3TileReader[SpatialKey, Tile], layerId: LayerId): TileLayerMetadata[SpatialKey] =
+  def _getMetadata(implicit sc: SparkContext, tileReader: S3ValueReader, layerId: LayerId): TileLayerMetadata[SpatialKey] =
     tileReader
       .attributeStore
       .readMetadata[TileLayerMetadata[SpatialKey]](layerId)
 
   def getTileWithZoom(implicit sc: SparkContext,
-                      tileReader: S3TileReader[SpatialKey, Tile],
+                      tileReader: S3ValueReader,
                       layer:String,
                       z:Int,
                       x:Int,
                       y:Int,
                       maxZoom:Int): Tile = {
     if (z <= maxZoom) {
-      val reader = tileReader.read(layer, z)
+      val reader = tileReader.reader[SpatialKey, Tile](layer, z)
       reader(SpatialKey(x, y))
     } else {
       val layerId = LayerId(layer, maxZoom)
-      val reader = tileReader.read(layerId)
+      val reader = tileReader.reader[SpatialKey, Tile](layerId)
       val rmd = _getMetadata(sc, tileReader, layerId)
       val layoutLevel = ZoomedLayoutScheme(rmd.crs).levelForZoom(rmd.extent, z)
       val mapTransform = MapKeyTransform(rmd.crs, layoutLevel.layout.layoutCols, layoutLevel.layout.layoutRows)
@@ -72,7 +72,7 @@ object TileGetter {
   val NLCD_MAX_ZOOM = 11
 
   def getMaskTiles(implicit sc:SparkContext,
-                   tileReader: S3TileReader[SpatialKey, Tile],
+                   tileReader: S3ValueReader,
                    layerMask: Option[LayerMaskType],
                    z:Int, x:Int, y:Int): Iterable[Tile] = {
     layerMask match {

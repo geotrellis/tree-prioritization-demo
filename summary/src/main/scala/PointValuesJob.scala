@@ -1,7 +1,12 @@
 package org.opentreemap.modeling
 
+import geotrellis.raster._
+import geotrellis.spark._
+import geotrellis.spark.io._
+
 import com.typesafe.config.Config
 import org.apache.spark._
+
 import spark.jobserver._
 
 object PointValuesJob
@@ -17,7 +22,7 @@ object PointValuesJob
   override def runJob(sc: SparkContext, config: Config): Any = {
     val startTime = System.currentTimeMillis
     val params = PointValuesJobConfig(config)
-    val reader = tileReader(sc).read(params.layerId)
+    val reader = tileReader(sc).reader[SpatialKey, Tile](params.layerId)
     val values = getValuesAtPoints(reader, metadata(sc, params.layerId))(params.pointsWithIds)
     val coords = values map {
       case (id, point, value) => Vector(id, point.x, point.y, value)

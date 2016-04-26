@@ -19,7 +19,7 @@ trait TileServiceLogic
   }
 
   def weightedOverlay(implicit sc: SparkContext,
-                      tileReader: S3TileReader[SpatialKey, Tile],
+                      tileReader: S3ValueReader,
                       layers:Seq[String],
                       weights:Seq[Int],
                       z:Int,

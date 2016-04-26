@@ -26,12 +26,12 @@ trait S3CatalogReading {
     }
   }
 
-  var _tileReader: S3TileReader[SpatialKey, Tile] = null
-  def tileReader(implicit sc: SparkContext):  S3TileReader[SpatialKey, Tile] = {
+  var _tileReader: S3ValueReader = null
+  def tileReader(implicit sc: SparkContext):  S3ValueReader = {
     if (null != _tileReader)
       _tileReader
     else {
-      _tileReader = S3TileReader[SpatialKey, Tile](bucket, prefix)
+      _tileReader = S3ValueReader(bucket, prefix)
       _tileReader
     }
   }
