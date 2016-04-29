@@ -11,8 +11,6 @@ resolvers ++= Seq(
 )
 
 libraryDependencies ++= Seq(
-  "com.azavea.geotrellis" %% "geotrellis-services" % "0.10.0-SNAPSHOT",
-  "com.azavea.geotrellis" %% "geotrellis-testkit" % "0.10.0-SNAPSHOT" % "test",
   "io.spray" % "spray-routing" % "1.2.1",
   "io.spray" %% "spray-json" % "1.2.6",
   "io.spray" % "spray-can" % "1.2.1",
