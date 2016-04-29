@@ -26,11 +26,16 @@ trait TileServiceLogic
                       x:Int,
                       y:Int): Tile = {
     // TODO: Handle layers with different pyramids instead of using DATA_TILE_MAX_ZOOM
-    layers
+    val tiles = layers.map { layer =>
+      TileGetter.getTileWithZoom(sc, tileReader, layer, z, x, y, DATA_TILE_MAX_ZOOM)
+    }
+    val anyFloats = tiles.exists(tile => tile.cellType.isFloatingPoint)
+    val targetCellType = if (anyFloats) FloatConstantNoDataCellType else IntConstantNoDataCellType
+    tiles
       .zip(weights)
-      .map { case (layer, weight) =>
-        val tile = TileGetter.getTileWithZoom(sc, tileReader, layer, z, x, y, DATA_TILE_MAX_ZOOM)
-        tile.convert(IntCellType).map(_ * weight)
+      .map { case (tile, weight) =>
+        val convertedTile = if (tile.cellType == targetCellType) tile else tile.convert(targetCellType)
+        convertedTile.map(_ * weight)
       }
       .reduce(addTiles)
   }
@@ -40,19 +45,25 @@ trait TileServiceLogic
                       layers:Seq[String],
                       weights:Seq[Int],
                       bounds:Extent): TileLayerRDD[SpatialKey] = {
-    val rdds = layers
+    val rdds = layers.map { layer =>
+      val base = catalog.query[SpatialKey, Tile, TileLayerMetadata[SpatialKey]]((layer, BREAKS_ZOOM))
+      base.where(Intersects(bounds)).result
+    }
+    val anyFloats = rdds.exists(rdd => rdd.metadata.cellType.isFloatingPoint)
+    val targetCellType = if (anyFloats) FloatConstantNoDataCellType else IntConstantNoDataCellType
+    val weightedRdds = rdds
       .zip(weights)
-      .map { case (layer, weight) =>
-        val base = catalog.query[SpatialKey, Tile, TileLayerMetadata[SpatialKey]]((layer, BREAKS_ZOOM))
-        val intersected = base.where(Intersects(bounds))
-        val rdd = intersected.result
-        // Convert Byte RDD to Int so that math operations do not overflow
-        rdd.convert(IntCellType).withContext {
+      .map { case (rdd, weight) =>
+        // Convert layer cell types for two reasons:
+        // 1) So a Byte layer won't overflow when weighted
+        // 2) To normalize cell types before adding them
+        val convertedRdd = if (rdd.metadata.cellType == targetCellType) rdd else rdd.convert(targetCellType)
+        convertedRdd.withContext {
           _.localMultiply(weight)
         }
       }
-    val weightedOverlay = rdds.localAdd
-    ContextRDD(weightedOverlay, rdds.head.metadata)
+    val weightedOverlay = weightedRdds.localAdd
+    ContextRDD(weightedOverlay, weightedRdds.head.metadata)
   }
 
   def renderTile(tile: Tile, breaks: Seq[Int], colorRamp: String): Png = {
