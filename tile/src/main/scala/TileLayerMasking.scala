@@ -50,9 +50,7 @@ trait TileLayerMasking {
   def layerTileMask(layerMasks: Iterable[Tile])(tile: Tile): Tile = {
     if (layerMasks.size > 0) {
       layerMasks.foldLeft(tile) { (acc, mask) =>
-        //acc.combine(mask) { (z, maskValue) =>
-        // TODO: restore above line when NLCD dataset is revived, allowing easy testing
-        acc.combine(mask.convert(IntCellType).toArrayTile) { (z, maskValue) =>
+        acc.combine(mask) { (z, maskValue) =>
           if (isData(maskValue)) z
           else NODATA
         }

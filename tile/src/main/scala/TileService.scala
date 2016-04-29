@@ -81,7 +81,7 @@ trait TileService extends HttpService
                 )
 
                 val unmasked = weightedOverlay(implicitly, catalog, layers, weights, extent)
-                val model = applyMasks(
+                val masked = applyMasks(
                   unmasked,
                   polyMask(polys)
                   /*
@@ -93,8 +93,7 @@ trait TileService extends HttpService
                    */
                   //layerMask(getMasksFromCatalog(implicitly, parsedLayerMask, extent, ModelingServiceSparkActor.BREAKS_ZOOM))
                 )
-
-                val breaks = model.classBreaks(numBreaks)
+                val breaks = masked.classBreaks(numBreaks)
                 if (breaks.size > 0 && breaks(0) == NODATA) {
                   s"""{ "error" : "Unable to calculate breaks (NODATA)."} """ //failWith(new ModelingException("Unable to calculate breaks (NODATA)."))
                 } else {
