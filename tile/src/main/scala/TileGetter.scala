@@ -13,32 +13,39 @@ import org.apache.spark._
 object TileGetter {
   import ModelingTypes._
 
-  def _getMetadata(implicit sc: SparkContext, tileReader: S3ValueReader, layerId: LayerId): TileLayerMetadata[SpatialKey] =
+  private def getMetadata(implicit sc: SparkContext, tileReader: S3ValueReader, layerId: LayerId): TileLayerMetadata[SpatialKey] =
     tileReader
       .attributeStore
       .readMetadata[TileLayerMetadata[SpatialKey]](layerId)
 
+  private def getMaxZoom(implicit sc: SparkContext,
+                 catalog: S3LayerReader,
+                 layerName: String): Int = {
+    catalog.attributeStore.layerIds.groupBy(_.name)(layerName).map(_.zoom).max
+  }
+
   def getTileWithZoom(implicit sc: SparkContext,
+                      catalog: S3LayerReader,
                       tileReader: S3ValueReader,
                       layer:String,
                       z:Int,
                       x:Int,
-                      y:Int,
-                      maxZoom:Int): Tile = {
+                      y:Int): Tile = {
+    val maxZoom = getMaxZoom(sc, catalog, layer)
     if (z <= maxZoom) {
       val reader = tileReader.reader[SpatialKey, Tile](layer, z)
       reader(SpatialKey(x, y))
     } else {
       val layerId = LayerId(layer, maxZoom)
       val reader = tileReader.reader[SpatialKey, Tile](layerId)
-      val rmd = _getMetadata(sc, tileReader, layerId)
+      val rmd = getMetadata(sc, tileReader, layerId)
       val layoutLevel = ZoomedLayoutScheme(rmd.crs).levelForZoom(rmd.extent, z)
       val mapTransform = MapKeyTransform(rmd.crs, layoutLevel.layout.layoutCols, layoutLevel.layout.layoutRows)
       val targetExtent = mapTransform(x, y)
       val gb @ GridBounds(nx, ny, _, _) = rmd.mapTransform(targetExtent)
       val sourceExtent = rmd.mapTransform(nx, ny)
       val largerTile = reader(SpatialKey(nx, ny))
-      largerTile.resample(sourceExtent, RasterExtent(targetExtent, 256, 256))
+      largerTile.resample(sourceExtent, RasterExtent(targetExtent, 512, 512))
     }
   }
 
@@ -69,16 +76,15 @@ object TileGetter {
     }
   }
 
-  val NLCD_MAX_ZOOM = 11
-
   def getMaskTiles(implicit sc:SparkContext,
+                   catalog: S3LayerReader,
                    tileReader: S3ValueReader,
                    layerMask: Option[LayerMaskType],
                    z:Int, x:Int, y:Int): Iterable[Tile] = {
     layerMask match {
       case Some(masks: LayerMaskType) =>
         masks map { case (layer, values) =>
-          val tile = getTileWithZoom(sc, tileReader, layer, z, x, y, NLCD_MAX_ZOOM)
+          val tile = getTileWithZoom(sc, catalog, tileReader, layer, z, x, y)
           tile.map { z =>
             if (values contains z) z
             else NODATA

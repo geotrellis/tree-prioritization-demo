@@ -11,7 +11,6 @@ import geotrellis.raster.render._
 
 trait TileServiceLogic
 {
-  val DATA_TILE_MAX_ZOOM = 11
   val BREAKS_ZOOM = 8
 
   def addTiles(t1: Tile, t2: Tile): Tile = {
@@ -19,15 +18,15 @@ trait TileServiceLogic
   }
 
   def weightedOverlay(implicit sc: SparkContext,
+                      catalog: S3LayerReader,
                       tileReader: S3ValueReader,
                       layers:Seq[String],
                       weights:Seq[Int],
                       z:Int,
                       x:Int,
                       y:Int): Tile = {
-    // TODO: Handle layers with different pyramids instead of using DATA_TILE_MAX_ZOOM
     val tiles = layers.map { layer =>
-      TileGetter.getTileWithZoom(sc, tileReader, layer, z, x, y, DATA_TILE_MAX_ZOOM)
+      TileGetter.getTileWithZoom(sc, catalog, tileReader, layer, z, x, y)
     }
     val anyFloats = tiles.exists(tile => tile.cellType.isFloatingPoint)
     val targetCellType = if (anyFloats) FloatConstantNoDataCellType else IntConstantNoDataCellType

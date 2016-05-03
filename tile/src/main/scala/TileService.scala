@@ -145,11 +145,11 @@ trait TileService extends HttpService
                   srid
                 )
 
-                val unmasked = weightedOverlay(implicitly, tileReader, layers, weights, z, x, y)
+                val unmasked = weightedOverlay(implicitly, catalog, tileReader, layers, weights, z, x, y)
                 val masked = applyTileMasks(
                   unmasked,
                   polyTileMask(polys, z, x, y),
-                  layerTileMask(TileGetter.getMaskTiles(implicitly, tileReader, parsedLayerMask, z, x, y)),
+                  layerTileMask(TileGetter.getMaskTiles(implicitly, catalog, tileReader, parsedLayerMask, z, x, y)),
                   thresholdTileMask(threshold)
                 )
 
