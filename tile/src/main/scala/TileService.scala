@@ -80,7 +80,7 @@ trait TileService extends HttpService
                   srid
                 )
 
-                val unmasked = weightedOverlay(implicitly, catalog, layers, weights, extent)
+                val unmasked = weightedOverlayForBreaks(implicitly, catalog, layers, weights, extent)
                 val masked = applyMasks(
                   unmasked,
                   polyMask(polys)
@@ -93,7 +93,8 @@ trait TileService extends HttpService
                    */
                   //layerMask(getMasksFromCatalog(implicitly, parsedLayerMask, extent, ModelingServiceSparkActor.BREAKS_ZOOM))
                 )
-                val breaks = masked.classBreaks(numBreaks)
+                // TODO: use classBreaks() once https://github.com/geotrellis/geotrellis/issues/1462 is fixed
+                val breaks = masked.classBreaksExactInt(numBreaks)
                 if (breaks.size > 0 && breaks(0) == NODATA) {
                   s"""{ "error" : "Unable to calculate breaks (NODATA)."} """ //failWith(new ModelingException("Unable to calculate breaks (NODATA)."))
                 } else {
@@ -110,7 +111,8 @@ trait TileService extends HttpService
 
   lazy val weightedOverlayTileRoute = path("gt" / "tile"/ IntNumber / IntNumber / IntNumber ~ ".png" ) { (z, x, y) =>
     post {
-      formFields('layers,
+      formFields('bbox,
+                 'layers,
                  'weights,
                  'palette ? "ff0000,ffff00,00ff00,0000ff",
                  'breaks,
@@ -119,12 +121,13 @@ trait TileService extends HttpService
                  'threshold.as[Int] ? NODATA,
                  'polyMask ? "",
                  'layerMask ? "") {
-        (layersString, weightsString,
+        (bbox, layersString, weightsString,
          palette, breaksString, srid, colorRamp, threshold,
          polyMaskParam, layerMaskParam) => {
           respondWithMediaType(MediaTypes.`image/png`) {
             complete {
               future {
+                val extent = Extent.fromString(bbox)
                 val layers = layersString.split(",")
 
                 val weights = weightsString.split(",").map(_.toInt)
@@ -145,7 +148,7 @@ trait TileService extends HttpService
                   srid
                 )
 
-                val unmasked = weightedOverlay(implicitly, catalog, tileReader, layers, weights, z, x, y)
+                val unmasked = weightedOverlay(implicitly, catalog, tileReader, layers, weights, extent, z, x, y)
                 val masked = applyTileMasks(
                   unmasked,
                   polyTileMask(polys, z, x, y),
