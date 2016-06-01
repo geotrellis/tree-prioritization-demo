@@ -51,7 +51,7 @@ trait LayerMasking {
     }
   }
 
- /** Filter model by 1 or more masks. */
+  /** Filter model by 1 or more masks. */
   def applyMasks(model: TileLayerRDD[SpatialKey],
                  masks: (TileLayerRDD[SpatialKey] => TileLayerRDD[SpatialKey])*
                 ) = {

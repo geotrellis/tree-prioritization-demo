@@ -27,7 +27,8 @@ trait TileServiceLogic
       .map { case (layer, weight) =>
         val tile = TileGetter.getTileWithZoom(sc, catalog, tileReader, layer, z, x, y)
         val normalizer = getNormalizer(sc, catalog, layer, null, bounds)
-        tile.color(normalizer) * weight
+        val normalizedTile = tile.color(normalizer).convert(IntConstantNoDataCellType)
+        normalizedTile * weight
       }
       .localAdd
   }
@@ -97,7 +98,7 @@ trait TileServiceLogic
 
   def renderTile(tile: Tile, breaks: Seq[Int], colorRamp: String): Png = {
     val cr = ColorRampMap.getOrElse(colorRamp, ColorRamps.BlueToRed)
-    val map = ColorMap(breaks.toArray, cr).withBoundaryType(LessThanOrEqualTo)
+    val map = ColorMap(breaks.toArray, cr)
     tile.renderPng(map)
   }
 
