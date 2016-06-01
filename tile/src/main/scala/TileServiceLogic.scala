@@ -91,8 +91,7 @@ trait TileServiceLogic
                        catalog: S3LayerReader,
                        layer:String,
                        bounds:Extent): TileLayerRDD[SpatialKey] = {
-    val breaksZoom = 8
-    val base = catalog.query[SpatialKey, Tile, TileLayerMetadata[SpatialKey]]((layer, breaksZoom))
+    val base = catalog.query[SpatialKey, Tile, TileLayerMetadata[SpatialKey]]((layer, TileGetter.breaksZoom))
     base.where(Intersects(bounds)).result
   }
 

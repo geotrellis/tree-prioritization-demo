@@ -91,7 +91,7 @@ trait TileService extends HttpService
                    have interpolated values that don't match the
                    original, discrete values.
                    */
-                  //layerMask(getMasksFromCatalog(implicitly, parsedLayerMask, extent, ModelingServiceSparkActor.BREAKS_ZOOM))
+                  //layerMask(TileGetter.getMasksFromCatalog(implicitly, catalog, parsedLayerMask, extent, TileGetter.breaksZoom))
                 )
                 // TODO: use classBreaks() once https://github.com/geotrellis/geotrellis/issues/1462 is fixed
                 val breaks = masked.classBreaksExactInt(numBreaks)

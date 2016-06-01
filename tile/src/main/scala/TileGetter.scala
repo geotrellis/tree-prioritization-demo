@@ -13,6 +13,8 @@ import org.apache.spark._
 object TileGetter {
   import ModelingTypes._
 
+  val breaksZoom = 8
+
   private def getMetadata(implicit sc: SparkContext, tileReader: S3ValueReader, layerId: LayerId): TileLayerMetadata[SpatialKey] =
     tileReader
       .attributeStore
@@ -58,7 +60,7 @@ object TileGetter {
                           catalog: S3LayerReader,
                           layerMask: Option[LayerMaskType],
                           extent: Extent,
-    zoom: Int): Iterable[TileLayerRDD[SpatialKey]] = {
+                          zoom: Int): Iterable[TileLayerRDD[SpatialKey]] = {
     layerMask match {
       case Some(masks: LayerMaskType) =>
         masks map { case (layerName: String, values: Array[Int]) =>
