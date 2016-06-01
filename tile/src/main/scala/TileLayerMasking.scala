@@ -71,7 +71,7 @@ trait TileLayerMasking {
     }
   }
 
-  def applyTileMasks(tile: Tile, masks: (Tile) => Tile*) = {
+  def applyTileMasks(tile: Tile, masks: (Tile => Tile)*) = {
     masks.foldLeft(tile) { (acc, mask) =>
       mask(acc)
     }

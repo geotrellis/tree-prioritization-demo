@@ -16,7 +16,6 @@ trait VectorHandling {
     */
   def parsePolyMaskParam(geoJson: String): Seq[Polygon] = {
     try {
-      import spray.json.DefaultJsonProtocol._
       val featureColl = geoJson.parseGeoJson[JsonFeatureCollection]
       val polys = featureColl.getAllPolygons union
                   featureColl.getAllMultiPolygons.map(_.polygons).flatten
