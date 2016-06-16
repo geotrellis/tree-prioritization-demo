@@ -17,3 +17,4 @@ TAGS
 Thumbs.db
 *.swp
 
+docker-s3-proxy-cache

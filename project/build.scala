@@ -13,7 +13,7 @@ object Version {
   val modeling     = "0.0.1"
 
   val geotools     = "8.0-M4"
-  val geotrellis   = "0.10.0"
+  val geotrellis   = "0.10.1"
   val scala        = "2.10.6"
   val scalatest    = "2.2.1"
   val spray        = "1.3.2"
