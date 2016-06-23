@@ -108,7 +108,7 @@ Arguments:
 |------------|-----------|---------|--------------|
 | bbox       | Yes       | String  | Bounding box projected as WebMercator. Format: `xmin,ymin,xmax,ymax`
 | layers     | Yes       | String  | Layer names (comma delimited). Should match the source raster file names.
-| weights    | Yes       | String  | Layer weights (comma delimited integers) for corresponding layer.
+| weights    | Yes       | String  | Layer weights (comma delimited integers) for corresponding layer. Negative weight inverts the tile value.
 | numBreaks  | Yes       | Int     | Number of result class breaks.
 | srid       | Yes       | Int     | Spatial Reference Identifier. Acceptable values are `3857` or `4326`.
 | threshold  |           | Int     | Exclude values lower than this value in class breaks calculation. (Default: `NODATA`)
@@ -138,7 +138,7 @@ Arguments:
 | palette    |           | String  | *Used by Leaflet.* Comma delimited list of hexadecimal values. (Default: `ff0000,ffff00,00ff00,0000ff`)
 | bbox       | Yes       | String  | Bounding box projected as WebMercator. Format: `xmin,ymin,xmax,ymax`
 | layers     | Yes       | String  | Layer names (comma delimited). Should match the source raster file names.
-| weights    | Yes       | String  | Layer weights (comma delimited integers) for corresponding layer.
+| weights    | Yes       | String  | Layer weights (comma delimited integers) for corresponding layer. Negative weight inverts the tile value.
 | breaks     | Yes       | String  | Class breaks (comma delimited integers)
 | srid       | Yes       | Int     | Spatial Reference Identifier. Acceptable values are `3857` or `4326`.
 | colorRamp  |           | String  | Color ramp name. (Default: `blue-to-red`)

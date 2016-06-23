@@ -9,9 +9,12 @@ import geotrellis.spark.io.Intersects
 import geotrellis.spark.io.s3._
 import geotrellis.spark.render._
 import geotrellis.raster.render._
+import geotrellis.raster.mapalgebra.local.Subtract
 
 trait TileServiceLogic
 {
+  val normalizedBins = 100
+
   def weightedOverlay(implicit sc: SparkContext,
                       catalog: S3LayerReader,
                       tileReader: S3ValueReader,
@@ -28,7 +31,12 @@ trait TileServiceLogic
         val tile = TileGetter.getTileWithZoom(sc, catalog, tileReader, layer, z, x, y)
         val normalizer = getNormalizer(sc, catalog, layer, null, bounds)
         val normalizedTile = tile.color(normalizer).convert(IntConstantNoDataCellType)
-        normalizedTile * weight
+        var weightedTile = if (weight.signum < 0) {
+            Subtract(normalizedBins - 1, normalizedTile)
+          } else {
+            normalizedTile
+          } * weight.abs
+        weightedTile
       }
       .localAdd
   }
@@ -47,9 +55,15 @@ trait TileServiceLogic
       .map { case ((layer, weight), rdd) =>
         val rdd = getLayer(sc, catalog, layer, bounds)
         val normalizer = getNormalizer(sc, catalog, layer, rdd, bounds)
-        val weightedRdd = rdd
-          .color(normalizer)  // normalize
-          .localMultiply(weight)
+        val normalizedRdd = rdd.color(normalizer)
+
+        val weightedRdd = if (weight.signum < 0) {
+            normalizedRdd.localSubtractFrom(normalizedBins - 1)
+          } else {
+            normalizedRdd
+          }
+          .localMultiply(weight.abs)
+
         ContextRDD(weightedRdd, resultMetadata)
       }
     val weightedOverlay = weightedRdds.localAdd
@@ -79,9 +93,8 @@ trait TileServiceLogic
       // Fetch the RDD if we don't already have it
       val rdd = if (rddOrNull != null) rddOrNull else
         getLayer(sc, catalog, layer, bounds)
-      val nBins = 100
       // TODO: use classBreaks() once https://github.com/geotrellis/geotrellis/issues/1462 is fixed
-      val breaks = rdd.classBreaksExactInt(nBins)
+      val breaks = rdd.classBreaksExactInt(normalizedBins)
       val normalizer = ColorMap(breaks.zipWithIndex.toMap, ColorMap.Options(noDataColor = NODATA))
       normalizerCache += (key -> normalizer)
       normalizer
