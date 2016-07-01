@@ -31,12 +31,13 @@ trait TileServiceLogic
         val tile = TileGetter.getTileWithZoom(sc, catalog, tileReader, layer, z, x, y)
         val normalizer = getNormalizer(sc, catalog, layer, null, bounds)
         val normalizedTile = tile.color(normalizer).convert(IntConstantNoDataCellType)
-        var weightedTile = if (weight.signum < 0) {
+        val polarizedTile =
+          if (weight.signum < 0) {
             Subtract(normalizedBins - 1, normalizedTile)
           } else {
             normalizedTile
-          } * weight.abs
-        weightedTile
+          }
+        polarizedTile * weight.abs
       }
       .localAdd
   }
@@ -56,13 +57,13 @@ trait TileServiceLogic
         val rdd = getLayer(sc, catalog, layer, bounds)
         val normalizer = getNormalizer(sc, catalog, layer, rdd, bounds)
         val normalizedRdd = rdd.color(normalizer)
-
-        val weightedRdd = if (weight.signum < 0) {
+        val polarizedRdd =
+          if (weight.signum < 0) {
             normalizedRdd.localSubtractFrom(normalizedBins - 1)
           } else {
             normalizedRdd
           }
-          .localMultiply(weight.abs)
+        val weightedRdd = polarizedRdd.localMultiply(weight.abs)
 
         ContextRDD(weightedRdd, resultMetadata)
       }
