@@ -95,6 +95,7 @@ trait TileService extends HttpService
                 )
                 // TODO: use classBreaks() once https://github.com/geotrellis/geotrellis/issues/1462 is fixed
                 val breaks = masked.classBreaksExactInt(numBreaks)
+                println("------------------- Outer Breaks: " + breaks.mkString(","))
                 if (breaks.size > 0 && breaks(0) == NODATA) {
                   s"""{ "error" : "Unable to calculate breaks (NODATA)."} """ //failWith(new ModelingException("Unable to calculate breaks (NODATA)."))
                 } else {
