@@ -56,7 +56,9 @@ trait TileServiceLogic
       .map { case ((layer, weight), rdd) =>
         val rdd = getLayer(sc, catalog, layer, bounds)
         val normalizer = getNormalizer(sc, catalog, layer, rdd, bounds)
-        val normalizedRdd = rdd.color(normalizer)
+        val normalizedRdd =
+          ContextRDD(rdd.color(normalizer), resultMetadata)
+            .convert(IntConstantNoDataCellType)
         val polarizedRdd =
           if (weight.signum < 0) {
             normalizedRdd.localSubtractFrom(normalizedBins - 1)
