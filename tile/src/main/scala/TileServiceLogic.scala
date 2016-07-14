@@ -31,12 +31,13 @@ trait TileServiceLogic
         val tile = TileGetter.getTileWithZoom(sc, catalog, tileReader, layer, z, x, y)
         val normalizer = getNormalizer(sc, catalog, layer, null, bounds)
         val normalizedTile = tile.color(normalizer).convert(IntConstantNoDataCellType)
-        var weightedTile = if (weight.signum < 0) {
+        val polarizedTile =
+          if (weight.signum < 0) {
             Subtract(normalizedBins - 1, normalizedTile)
           } else {
             normalizedTile
-          } * weight.abs
-        weightedTile
+          }
+        polarizedTile * weight.abs
       }
       .localAdd
   }
@@ -55,14 +56,16 @@ trait TileServiceLogic
       .map { case ((layer, weight), rdd) =>
         val rdd = getLayer(sc, catalog, layer, bounds)
         val normalizer = getNormalizer(sc, catalog, layer, rdd, bounds)
-        val normalizedRdd = rdd.color(normalizer)
-
-        val weightedRdd = if (weight.signum < 0) {
+        val normalizedRdd =
+          ContextRDD(rdd.color(normalizer), resultMetadata)
+            .convert(IntConstantNoDataCellType)
+        val polarizedRdd =
+          if (weight.signum < 0) {
             normalizedRdd.localSubtractFrom(normalizedBins - 1)
           } else {
             normalizedRdd
           }
-          .localMultiply(weight.abs)
+        val weightedRdd = polarizedRdd.localMultiply(weight.abs)
 
         ContextRDD(weightedRdd, resultMetadata)
       }
@@ -95,6 +98,7 @@ trait TileServiceLogic
         getLayer(sc, catalog, layer, bounds)
       // TODO: use classBreaks() once https://github.com/geotrellis/geotrellis/issues/1462 is fixed
       val breaks = rdd.classBreaksExactInt(normalizedBins)
+      println("------------------- Inner Breaks: " + breaks.mkString(","))
       val normalizer = ColorMap(breaks.zipWithIndex.toMap, ColorMap.Options(noDataColor = NODATA))
       normalizerCache += (key -> normalizer)
       normalizer
