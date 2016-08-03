@@ -20,7 +20,8 @@ trait S3CatalogReading {
     // this saves ~200ms per request
     if (null == _catalog) {
       val attributeStore = new S3AttributeStore(bucket, prefix)
-      _catalog = new S3ProxyLayerReader(attributeStore)
+      // _catalog = new S3ProxyLayerReader(attributeStore)
+      _catalog = new S3LayerReader(attributeStore)
     }
     _catalog
   }
@@ -28,7 +29,8 @@ trait S3CatalogReading {
   var _tileReader: S3ValueReader = null
   def tileReader(implicit sc: SparkContext):  S3ValueReader = {
     if (null == _tileReader) {
-      _tileReader = S3ProxyValueReader(bucket, prefix)
+      // _tileReader = S3ProxyValueReader(bucket, prefix)
+      _tileReader = S3ValueReader(bucket, prefix)
     }
     _tileReader
   }
