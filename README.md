@@ -30,7 +30,7 @@
 
     ```
     curl --silent \
-         --data-binary @summary/target/scala-2.10/otm-modeling-summary-assembly-0.0.1.jar \
+         --data-binary @summary/target/scala-2.10/otm-modeling-summary-assembly-1.0.0.jar \
          'http://localhost:8090/jars/summary'
     ```
 
