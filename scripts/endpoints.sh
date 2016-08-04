@@ -10,9 +10,9 @@ curl -d 'bbox=-13193642.578247702,3977047.2455633273,-13100389.403739786,4039419
 
 echo
 echo ----------------- point values
-curl --data-binary @summary/examples/request-values.json 'http://localhost:8081/sjs/jobs?sync=true&context=modeling&appName=otm-modeling-0.0.1&classPath=org.opentreemap.modeling.PointValuesJob'
+curl --data-binary @summary/examples/request-values.json 'http://localhost:8081/sjs/jobs?sync=true&context=modeling&appName=otm-modeling-1.0.0&classPath=org.opentreemap.modeling.PointValuesJob'
 
 echo
 echo ----------------- histogram
-curl --data-binary @summary/examples/request-histogram.json 'http://localhost:8081/sjs/jobs?sync=true&context=modeling&appName=otm-modeling-0.0.1&classPath=org.opentreemap.modeling.HistogramJob'
+curl --data-binary @summary/examples/request-histogram.json 'http://localhost:8081/sjs/jobs?sync=true&context=modeling&appName=otm-modeling-1.0.0&classPath=org.opentreemap.modeling.HistogramJob'
 

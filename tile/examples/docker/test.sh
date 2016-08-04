@@ -13,7 +13,7 @@ MODELING_TILE_HOME=/opt/otm-modeling-tile
 DATAHUB_AWS_PROFILE=otm-test
 printf "Tiles will be requested using the $DATAHUB_AWS_PROFILE AWS profile\n"
 
-cp $PWD/../../../combined/target/scala-2.10/otm-modeling-assembly-0.0.1.jar $PWD/home/otm-modeling.jar
+cp $PWD/../../../combined/target/scala-2.10/otm-modeling-assembly-1.0.0.jar $PWD/home/otm-modeling.jar
 
 printf "Run Container\n"
 docker run \
