@@ -43,5 +43,5 @@ curl -X POST "http://$sjs/contexts/$context"
 # The modeling project directory is shared into the VM at
 # /opt/modeling and the tile service loads the JAR from that path
 cp $jarpath .
-# Restart the tile service to load the new JAR
-vagrant ssh $vagrantvm -c "sudo service otm-modeling-tile restart"
+# Restart the tile service container to load the new JAR
+vagrant ssh $vagrantvm -c "sudo docker restart otm-modeling-tile"
