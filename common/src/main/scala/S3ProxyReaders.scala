@@ -30,15 +30,14 @@ object S3ProxyClient {
   def apply() = {
     val config = S3Client.defaultConfiguration
     config.setProtocol(Protocol.HTTP)
-    // TODO: get proxy host and port from application.conf (but avoid
-    // Spark "object not serializable" runtime exception).
-    config.setProxyHost("s3-proxy-cache")
-    config.setProxyPort(80)
     val client = new AWSAmazonS3Client(new DefaultAWSCredentialsProviderChain(), config)
     // Generate "path-style" URLs (s3.amazonaws.com/bucket/object)
     // instead of "virtual-hosted-style" URLs (bucket.s3.amazonaws.com/object)
     // because that's what our cacheing proxy is expecting
     client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true))
+    // TODO: get endpoint from environment variable and communicate via spark broadcast
+    // (so as to avoid Spark "object not serializable" runtime exception).
+    client.setEndpoint("http://s3-proxy")
     new AmazonS3Client(client)
   }
 }
