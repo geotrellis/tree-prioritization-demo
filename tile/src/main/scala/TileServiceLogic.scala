@@ -96,9 +96,7 @@ trait TileServiceLogic
       // Fetch the RDD if we don't already have it
       val rdd = if (rddOrNull != null) rddOrNull else
         getLayer(sc, catalog, layer, bounds)
-      // TODO: use classBreaks() once https://github.com/geotrellis/geotrellis/issues/1462 is fixed
       val breaks = rdd.classBreaksExactInt(normalizedBins)
-      println("------------------- Inner Breaks: " + breaks.mkString(","))
       val normalizer = ColorMap(breaks.zipWithIndex.toMap, ColorMap.Options(noDataColor = NODATA))
       normalizerCache += (key -> normalizer)
       normalizer
