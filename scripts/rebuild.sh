@@ -3,7 +3,7 @@
 # Usage:
 # $ SJS_HOST=33.33.34.48 SJS_PORT=8090 ./scripts/rebuild.sh
 
-# 1. Build the combined modeling assembly JAR
+# 1. Build the modeling assembly JAR
 # 2. Copy the JAR to the project root, mounted in the vagrant VM
 # 3. Restart the tile service within the Vagrant VM
 
@@ -13,21 +13,17 @@ set -x
 vagrantvm="modeling"
 context="modeling"
 
-: "${SJS_HOST?You need to set SJS_HOST. To connect to the Vagrant VM \"SJS_HOST=33.33.34.48\"}"
-: "${SJS_PORT?You need to set SJS_PORT. To connect to the Vagrant VM \"SJS_PORT=8090\"}"
-sjs="$SJS_HOST:$SJS_PORT"
-
 # remove any previously built versions of the JAR
-rm -f combined/target/scala-2.10/*.jar
+rm -f tile/target/scala-2.10/*.jar
 
 # Build the combined JAR
 ./sbt assembly
 
-# Get the name of the combined assembly. Using `head` when getting the
+# Get the name of the assembly. Using `head` when getting the
 # `jarpath` is a precaution. We only expect one JAR to be built, but
 # the other commands assume that $jarpath will be a single path
 # string.
-jarpath=`ls combined/target/scala-2.10/*.jar | head -n 1`
+jarpath=`ls tile/target/scala-2.10/*.jar | head -n 1`
 
 # The modeling project directory is shared into the VM at
 # /opt/modeling and the tile service loads the JAR from that path

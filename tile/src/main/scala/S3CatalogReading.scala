@@ -1,12 +1,11 @@
 package org.opentreemap.modeling
 
-import org.apache.spark._
 import geotrellis.raster._
 import geotrellis.spark._
-import geotrellis.spark.io.Intersects
-import geotrellis.spark.io._
+import geotrellis.spark.io.{Intersects, _}
 import geotrellis.spark.io.s3._
 import geotrellis.vector._
+import org.apache.spark._
 
 
 trait S3CatalogReading {

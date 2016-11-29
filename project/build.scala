@@ -78,7 +78,7 @@ object OTMModelingBuild extends Build {
   )
 
   lazy val root: Project =
-    Project("otm-modeling", file(".")).aggregate(tile, combined)
+    Project("otm-modeling", file(".")).aggregate(tile)
 
   lazy val rootSettings =
     Seq(
@@ -105,32 +105,14 @@ object OTMModelingBuild extends Build {
     ) ++ defaultAssemblySettings
 
 
-  lazy val common = Project("common",  file("common"))
-    .settings(commonSettings:_*)
-
-  lazy val commonSettings =
-    Seq(
-      name := "otm-modeling-common"
-    ) ++ rootSettings
-
   lazy val tile = Project("tile",  file("tile"))
-    .settings(tileSettings:_*).dependsOn(common)
+    .settings(tileSettings:_*)
 
   lazy val tileSettings =
-    Seq(
-      name := "otm-modeling-tile"
-    ) ++ rootSettings
-
-  lazy val combinedSettings =
     Seq(
       name := "otm-modeling",
       jarName in assembly := s"otm-modeling-${Version.modeling}.jar",
       mainClass := Some("org.opentreemap.modeling.Main")
     ) ++ rootSettings
-
-  lazy val combined = Project("combined",  file("combined"))
-    .settings(combinedSettings:_*)
-    .dependsOn(common)
-    .dependsOn(tile)
 
 }
