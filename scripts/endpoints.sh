@@ -1,6 +1,10 @@
 #!/bin/bash
 
 echo
+echo ----------------- health-check
+curl http://localhost:8081/tile/gt/health-check
+
+echo
 echo ----------------- breaks
 curl -d 'bbox=-13193643.578247702,3977047.2455633273,-13100389.403739786,4039419.8606440313&layers=us-census-property-value-30m-epsg3857&weights=2&numBreaks=10&srid=3857' -X POST "http://localhost:8081/tile/gt/breaks"
 
