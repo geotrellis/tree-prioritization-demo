@@ -7,7 +7,6 @@ import geotrellis.spark.io._
 import geotrellis.spark.io.s3.{S3LayerReader, S3ValueReader}
 import geotrellis.spark.tiling._
 import geotrellis.vector._
-
 import org.apache.spark._
 
 object TileGetter {
