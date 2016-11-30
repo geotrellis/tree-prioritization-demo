@@ -83,19 +83,12 @@ trait TileService extends HttpService
                 val unmasked = weightedOverlayForBreaks(implicitly, catalog, layers, weights, extent)
                 val masked = applyMasks(
                   unmasked,
-                  polyMask(polys)
-                  /*
-                   TODO: Trying to use the land-use layer as a mask at
-                   a lower zoom levels generated "empty collection"
-                   exceptions. I suspect that the lower zoom versions
-                   have interpolated values that don't match the
-                   original, discrete values.
-                   */
-                  //layerMask(TileGetter.getMasksFromCatalog(implicitly, catalog, parsedLayerMask, extent, TileGetter.breaksZoom))
+                  polyMask(polys),
+                  layerMask(TileGetter.getMasksFromCatalog(implicitly, catalog, parsedLayerMask, extent, TileGetter.breaksZoom))
                 )
                 val breaks = masked.classBreaksExactInt(numBreaks)
                 if (breaks.size > 0 && breaks(0) == NODATA) {
-                  s"""{ "error" : "Unable to calculate breaks (NODATA)."} """ //failWith(new ModelingException("Unable to calculate breaks (NODATA)."))
+                  s"""{ "error" : "Unable to calculate breaks (NODATA)."} """
                 } else {
                   val breaksArray = breaks.mkString("[", ",", "]")
                   s"""{ "classBreaks" : $breaksArray }"""
