@@ -1,6 +1,7 @@
 package org.opentreemap.modeling
 
 import geotrellis.raster._
+import geotrellis.spark.{SpatialKey, TileLayerMetadata}
 import geotrellis.spark.util.SparkUtils
 import geotrellis.vector._
 import org.apache.spark._
@@ -27,6 +28,7 @@ trait TileService extends HttpService
 
   lazy val serviceRoute =
     handleExceptions(exceptionHandler) {
+      healthCheckRoute ~
       breaksRoute ~
       weightedOverlayTileRoute
     }
@@ -42,6 +44,24 @@ trait TileService extends HttpService
     case ex =>
       ex.printStackTrace(Console.err)
       complete(StatusCodes.InternalServerError)
+  }
+
+  lazy val healthCheckRoute = path("gt" / "health-check") {
+    get {
+      try {
+        if (catalog.attributeStore.layerIds.nonEmpty) {
+          complete("OK")
+        } else {
+          println("Attribute store contains no layer IDs")
+          complete(StatusCodes.ServiceUnavailable)
+        }
+      } catch {
+        case ex: Exception => {
+          println("Health check exception: " + ex.getMessage)
+          complete(StatusCodes.InternalServerError)
+        }
+      }
+    }
   }
 
   lazy val breaksRoute = path("gt" / "breaks") {
