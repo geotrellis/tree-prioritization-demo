@@ -100,18 +100,23 @@ trait TileService extends HttpService
                   srid
                 )
 
-                val unmasked = weightedOverlayForBreaks(implicitly, catalog, layers, weights, extent)
-                val masked = applyMasks(
-                  unmasked,
-                  polyMask(polys),
-                  layerMask(TileGetter.getMasksFromCatalog(implicitly, catalog, parsedLayerMask, extent, TileGetter.breaksZoom))
-                )
-                val breaks = masked.classBreaksExactInt(numBreaks)
-                if (breaks.size > 0 && breaks(0) == NODATA) {
-                  s"""{ "error" : "Unable to calculate breaks (NODATA)."} """
-                } else {
-                  val breaksArray = breaks.mkString("[", ",", "]")
-                  s"""{ "classBreaks" : $breaksArray }"""
+                clipExtentToExtentOfPolygons(extent, polys) match {
+                  case None => s"""{ "error" : "Polygon masks do not intersect map bounds."}"""
+                  case Some(extentClipped) => {
+                    val unmasked = weightedOverlayForBreaks(implicitly, catalog, layers, weights, extent, extentClipped)
+                    val masked = applyMasks(
+                      unmasked,
+                      polyMask(polys),
+                      layerMask(TileGetter.getMasksFromCatalog(implicitly, catalog, parsedLayerMask, extentClipped, TileGetter.breaksZoom))
+                    )
+                    val breaks = masked.classBreaksExactInt(numBreaks)
+                    if (breaks.size > 0 && breaks(0) == NODATA) {
+                      s"""{ "error" : "Unable to calculate breaks (NODATA)."} """
+                    } else {
+                      val breaksArray = breaks.mkString("[", ",", "]")
+                      s"""{ "classBreaks" : $breaksArray }"""
+                    }
+                  }
                 }
               }
             }
