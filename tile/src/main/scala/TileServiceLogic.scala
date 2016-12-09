@@ -46,15 +46,15 @@ trait TileServiceLogic
                                catalog: S3LayerReader,
                                layers:Seq[String],
                                weights:Seq[Int],
-                               bounds:Extent): TileLayerRDD[SpatialKey] =
+                               bounds:Extent,
+                               clippedBounds:Extent): TileLayerRDD[SpatialKey] =
   {
-    val rdds = layers.map { layer => getLayer(sc, catalog, layer, bounds) }
+    val rdds = layers.map { layer => getLayer(sc, catalog, layer, clippedBounds) }
     val resultMetadata = rdds.head.metadata.copy(cellType = IntConstantNoDataCellType)
     val weightedRdds = layers
       .zip(weights)
       .zip(rdds)
       .map { case ((layer, weight), rdd) =>
-        val rdd = getLayer(sc, catalog, layer, bounds)
         val normalizer = getNormalizer(sc, catalog, layer, rdd, bounds)
         val normalizedRdd =
           ContextRDD(rdd.color(normalizer), resultMetadata)
