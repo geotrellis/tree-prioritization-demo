@@ -39,8 +39,8 @@ then
         fi
     fi
 
-    # Upload the combined project assembly to the release
-    outputjar="combined/target/scala-2.10/otm-modeling-$tagname.jar"
+    # Upload the project assembly to the release
+    outputjar="tile/target/scala-2.10/otm-modeling-$tagname.jar"
     releasejarname=$(basename $outputjar)
 
     echo "Uploading $releasejarname" >&2
