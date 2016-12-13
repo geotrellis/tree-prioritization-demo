@@ -44,6 +44,10 @@ trait VectorHandling {
   }
 
   def clipExtentToExtentOfPolygons(extent: Extent, polys: Seq[Polygon]): Option[Extent] = {
-    extent intersection polys.map(_.envelope).reduce(_ combine _)
+    if (polys.isEmpty) {
+      Option(extent)
+    } else {
+      extent intersection polys.map(_.envelope).reduce(_ combine _)
+    }
   }
 }
