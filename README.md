@@ -1,102 +1,48 @@
-# OpenTreeMap Modeling and Prioritization Service
+# OpenTreeMap Modeling Tile Service 
 
-## Getting Started
+## Clone, provision, build and run
 
-### Copy sample rasters
+1. `cd otm-cloud/src`
+1. `git clone git@github.com:opentreemap/otm-modeling`
+1. `vagrant up modeling`
+1. `cd otm-modeling`
+1. `scripts/rebuild.sh`
 
-    scp lr11:/var/trellis/usace/Peo10_no-huc12.* /var/projects/OpenTreeMap-Modeling/data/catalog/
+## Make a release
 
-### Run the tile service
+Here's how to make a release of OTM modeling:
 
-1. ``git clone git@github.com:opentreemap/otm-modeling.git``
-1. ``cd OpenTreeMap-Modeling``
-1. ``./sbt "project tile" run``
+1. Update the version number in `otm-modeling`
 
-### Run the summary Spark Job Server job
+   1. `cd `otm-cloud/src/otm-modeling`
+   1. `git co develop`
+   1. `git pull`
+   1. Change `otm-modeling/project/build.scala` so that `val modeling = "X.Y.Z"`
+   1. `git commit` (to the local develop branch)
+   1. `git tag X.Y.Z`
+   1. `git push origin develop --follow-tags`
 
-1. Install [Docker](https://www.docker.com)
-1. Setup your ``~/.aws`` directory so that the default account has access to the com.azavea.datahub S3 bucket.
-1. ``./sbt "project summary" assembly``
-1. Run Spark Job Server
+1. The `otm-modeling` Jenkins job should create the new release (using `deployment/scripts/upload-jar-to-release.sh`).
 
-    ```
-    docker run \
-      --volume ${HOME}/.aws:/root/ws:ro \
-      --volume ${PWD}/summary/etc/spark-jobserver.conf:/opt/spark-jobserver/spark-jobserver.conf:ro \
-      --publish 8090:8090 --name spark-jobserver quay.io/azavea/spark-jobserver:latest
-    ```
+1. Update `otm-cloud` to use the new release:
+   1. Update `otm-cloud/deployment/ansible/group_vars/all` so that `modeling_version: "X.Y.Z"`
+   1. Make a pull request, and merge it
 
-1. Add the job jar to SJS
-
-    ```
-    curl --silent \
-         --data-binary @summary/target/scala-2.10/otm-modeling-summary-assembly-1.0.0.jar \
-         'http://localhost:8090/jars/summary'
-    ```
-
-1. Create a Spark context
-
-    ```
-    curl --silent --data "" 'http://localhost:8090/contexts/summary-context'``
-    ```
-
-1. Test a job
-
-    ```
-    curl --silent \
-         --data-binary @summary/examples/request-histogram.json \
-         'http://localhost:8090/jobs?sync=true&context=summary-context&appName=summary&classPath=org.opentreemap.modeling.HistogramJob
-    ```
-
-### Auto reloading
-
-Use the *sbt-revolver* plugin to monitor and automatically reload the tile service when there are any file changes.
-
-    ./sbt "project tile" ~re-start
-
-### Run unit tests
-
-    ./sbt "project tile" ~test
-
-### Build a distribution tarball
-
-1. ``git clone git@github.com:OpenTreeMap/OpenTreeMap-Modeling.git``
-1. ``cd OpenTreeMap-Modeling``
-1. ``./make-tar``
-
-## Tile endpoint description
+## Endpoints
 
 Here are the HTTP endpoints that are available from the tile service.
 
-* [/](#index)
-* [/gt/colors](#gtcolors)
-* [/gt/breaks](#gtbreaks)
-* [/gt/wo](#gtwo)
+### /tile/gt/health-check
 
-### <a name="index"></a> /
-
-Test page with a Leaflet map and a few basic controls to test the other endpoint operations.
-
-There is no guarantee that this endpoint is completely stable and it will soon become obsolete.
-
-### /gt/colors
-
-Returns a list of acceptable color ramps.
+Inquire whether the tile service is healthy.
 
 Accepted verbs: __GET__
 
-Sample output:
+Arguments: none
 
-    {
-        "colors": [
-        {
-            "key": "blue-to-red",
-            "image": "img/ramps/blue-to-red.png"
-        },
-        ...
-    }
+Returns `OK` with status code 200 if successful. Returns status code 503 ("Service unavailable") or 500 if unsuccessful.
 
-### /gt/breaks
+### /tile/gt/breaks
 
 Return class breaks for weighted layers overlay.
 
@@ -119,7 +65,7 @@ Sample output:
 
     { "classBreaks": [12,16] }
 
-### /gt/wo
+### /tile/gt/z/x/y.png
 
 Render a weighted overlay map tile as a PNG image.
 
@@ -145,76 +91,3 @@ Arguments:
 | threshold  |           | Int     | Exclude values lower than this value in class breaks calculation. (Default: `NODATA`)
 | polyMask   |           | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
 | layerMask  |           | JSON    | Exclude values from result. Map of layer names to selected raster values. Format: `{ LayerName: [1, 2, 3], ...}`
-
-
-## Summary job descriptions
-
-### org.opentreemap.modeling.HistogramJob
-
-Return distribution of raster values for specified `layer` at the
-specified `zoom` within `polyMask`.
-
-Arguments:
-
-| Name       | Required? | Type    |  Description |
-|------------|-----------|---------|--------------|
-| layer      | Yes       | String  | Layer name. Should match the name of a layer in the Azavea datahub S3 bucket.
-| zoom       | Yes       | Int     | Which OSM zoom level (resolution) to use. 11 is the closest match for 30m NLCD.
-| polyMask   | Yes       | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
-
-
-Sample input:
-
-    {
-      "input": {
-        "zoom": 11,
-        "layer": "nlcd-wm-ext-tms",
-        "polyMask": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{},\"geometry\":{\"type\":\"Polygon\",\"crs\":\"EPSG:3857\",\"coordinates\":[[[-13150073.472125152,4014380.7622378],[-13181073.472125152,4014380.7622378],[-13151073.472125152,4015380.7622378],[-13150073.472125152,4015380.7622378],[-13150073.472125152,4014380.7622378]]]}}]}"
-      }
-    }
-
-Sample output:
-
-    {
-      "status": "OK",
-      "result": {
-        "elapsed": 272,
-        "envelope": [-13181073.472125152, 4014380.7622378, -13150073.472125152, 4015380.7622378],
-        "histogram": [[11, 80], [21, 281], [22, 1358], [23, 14987], [24, 8316], [71, 98]]
-      }
-    }
-
-
-### org.opentreemap.modeling.PointValuesJob
-
-Return the value for one or more points on a raster.
-
-Arguments:
-
-| Name       | Required? | Type    |  Description |
-|------------|-----------|---------|--------------|
-| layer      | Yes       | String  | Layer name.
-| zoom       | Yes       | Int     | Which OSM zoom level (resolution) to use. 11 is the closest match for 30m NLCD.
-| coords     | Yes       | String  | Comma delimited list of values formatted like `Name,X,Y,...`.
-| srid       | Yes       | Int     | Spatial Reference Identifier. Acceptable values are `3857` or `4326`.
-
-Sample input:
-
-    {
-      "input": {
-        "zoom": 11,
-        "layer": "nlcd-wm-ext-tms",
-        "srid": 3857,
-        "coords": "1,-13150073.472125152,4014380.7622378,2,-13155073.472125152,4012380.7622378"
-      }
-    }
-
-Sample output:
-
-    {
-      "status": "OK",
-      "result": {
-        "elapsed": 761,
-        "coords": [["1", -13150073.472125152, 4014380.7622378, 23], ["2", -13155073.472125152, 4012380.7622378, 22]]
-      }
-    }
