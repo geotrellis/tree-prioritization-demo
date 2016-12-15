@@ -14,11 +14,11 @@ Here's how to make a release of OTM modeling:
 
 1. Update the version number in `otm-modeling`
 
-   1. `cd `otm-cloud/src/otm-modeling`
+   1. `cd otm-cloud/src/otm-modeling`
    1. `git co develop`
    1. `git pull`
    1. Change `otm-modeling/project/build.scala` so that `val modeling = "X.Y.Z"`
-   1. `git commit` (to the local develop branch)
+   1. Commit to the local develop branch
    1. `git tag X.Y.Z`
    1. `git push origin develop --follow-tags`
 
