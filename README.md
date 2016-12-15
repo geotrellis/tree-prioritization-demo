@@ -18,9 +18,10 @@ Here's how to make a release of OTM modeling:
    1. `git co develop`
    1. `git pull`
    1. Change `otm-modeling/project/build.scala` so that `val modeling = "X.Y.Z"`
-   1. Commit to the local develop branch
+   1. `git commit -amX.Y.Z`
+   1. `git push origin`
    1. `git tag X.Y.Z`
-   1. `git push origin develop --follow-tags`
+   1. `git push origin --tags`
 
 1. The `otm-modeling` Jenkins job should create the new release (using `deployment/scripts/upload-jar-to-release.sh`).
 
