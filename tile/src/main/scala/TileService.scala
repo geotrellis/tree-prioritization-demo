@@ -19,7 +19,8 @@ trait TileService extends HttpService
                      with VectorHandling
                      with S3CatalogReading
                      with LayerMasking
-                     with TileLayerMasking {
+                     with TileLayerMasking
+                     with Rollbar {
   import ModelingTypes._
 
   implicit def executionContext = actorRefFactory.dispatcher
@@ -35,15 +36,20 @@ trait TileService extends HttpService
 
   lazy val exceptionHandler = ExceptionHandler {
     case ex: ModelingException =>
-      ex.printStackTrace(Console.err)
+      logException(ex)
       complete(StatusCodes.InternalServerError, s"""{
           "status": "${StatusCodes.InternalServerError}",
           "statusCode": ${StatusCodes.InternalServerError.intValue},
           "message": "${ex.getMessage.replace("\"", "\\\"")}"
         } """)
     case ex =>
-      ex.printStackTrace(Console.err)
+      logException(ex)
       complete(StatusCodes.InternalServerError)
+  }
+
+  private def logException(ex:Throwable): Unit = {
+    ex.printStackTrace(Console.err)
+    postExceptionToRollbar(ex)
   }
 
   lazy val healthCheckRoute = path("gt" / "health-check") {

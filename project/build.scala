@@ -98,7 +98,13 @@ object OTMModelingBuild extends Build {
         "io.spray" %% "spray-json" % Version.sprayJson,
         "io.spray" %% "spray-can" % Version.spray,
         "org.apache.spark" %% "spark-core" % Version.spark % "provided",
-        "org.apache.hadoop" % "hadoop-client" % Version.hadoop % "provided"
+        "org.apache.hadoop" % "hadoop-client" % Version.hadoop % "provided",
+        // Begin Rollbar
+        "com.storecove" %% "rollbar-scala" % "1.0",
+        "net.databinder.dispatch" %% "dispatch-core" % "0.11.2",
+        "org.json4s" %% "json4s-jackson" % "3.2.11",
+        "org.slf4j" % "slf4j-api" % "1.7.12"
+        // End Rollbar
       ),
 
       unmanagedResourceDirectories in Compile <+= baseDirectory / "data"

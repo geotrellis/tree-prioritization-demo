@@ -20,8 +20,8 @@ object TileServiceConfig {
     Option(System.getenv(envVar)).getOrElse(config.getString(configKey))
   }
 
-  val host = stringFromEnvOrConfig("HOST", "geotrellis.host")
-  val port = intFromEnvOrConfig("PORT", "geotrellis.port")
-  val staticPath = stringFromEnvOrConfig("STATIC_PATH", "server.static-path")
-  val featuresPath = stringFromEnvOrConfig("FEATURES_PATH", "server.features-path")
+  val host = stringFromEnvOrConfig("HOST", "tileService.host")
+  val port = intFromEnvOrConfig("PORT", "tileService.port")
+  val rollbarAccessToken = System.getenv("ROLLBAR_SERVER_SIDE_ACCESS_TOKEN")
+  val otmStackType = System.getenv("OTM_STACK_TYPE")
 }

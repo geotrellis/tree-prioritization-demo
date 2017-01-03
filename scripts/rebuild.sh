@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Usage:
-# $ SJS_HOST=33.33.34.48 SJS_PORT=8090 ./scripts/rebuild.sh
+# scripts/rebuild.sh
 
 # 1. Build the modeling assembly JAR
 # 2. Copy the JAR to the project root, mounted in the vagrant VM
