@@ -27,6 +27,9 @@ trait TileService extends HttpService
 
   implicit val sparkContext = SparkUtils.createSparkContext("OTM Modeling Tile Service Context", new SparkConf())
 
+  sparkContext.setLogLevel("ERROR")
+  postInfoToRollbar("OpenTreeMap modeling tile service is starting")
+
   lazy val serviceRoute =
     handleExceptions(exceptionHandler) {
       healthCheckRoute ~

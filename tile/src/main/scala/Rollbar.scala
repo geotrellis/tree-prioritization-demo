@@ -8,11 +8,19 @@ import scala.collection.mutable
 
 trait Rollbar {
 
+  def postInfoToRollbar(message:String): Unit = {
+    postToRollbar("INFO", message, None)
+  }
+
   def postExceptionToRollbar(ex:Throwable): Unit = {
+    postToRollbar("ERROR", ex.getMessage, Some(ex))
+  }
+
+  private def postToRollbar(level:String, message:String, ex:Option[Throwable]): Unit = {
     val accessToken = TileServiceConfig.rollbarAccessToken
     val environment = TileServiceConfig.otmStackType
     val notifier = RollbarNotifierFactory.getNotifier(accessToken, environment)
-    notifier.notify("ERROR", ex.getMessage, Some(ex), getMDC)
+    notifier.notify(level, message, ex, getMDC)
   }
 
   private def getMDC = {
