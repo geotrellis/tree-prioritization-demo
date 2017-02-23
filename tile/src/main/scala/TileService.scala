@@ -57,17 +57,24 @@ trait TileService extends HttpService
 
   lazy val healthCheckRoute = path("gt" / "health-check") {
     get {
-      try {
-        if (catalog.attributeStore.layerIds.nonEmpty) {
-          complete("OK")
-        } else {
-          println("Attribute store contains no layer IDs")
-          complete(StatusCodes.ServiceUnavailable)
-        }
-      } catch {
-        case ex: Exception => {
-          println("Health check exception: " + ex.getMessage)
-          complete(StatusCodes.InternalServerError)
+      val bbox = "-9543468,5567290,-9514957,5594426"
+      val layersParam = "us-census-population-density-30m-epsg3857"
+      val weightsParam = "3"
+      val numBreaks = 10
+      val srid = 3857
+      val polyMaskParam = ""
+      val layerMaskParam = ""
+      val expected = "{ \"classBreaks\" : [0,12,24,39,51,69,90,123,183,297] }"
+      respondWithMediaType(MediaTypes.`text/plain`) {
+        complete {
+          future {
+            val result = computeBreaks(bbox, layersParam, weightsParam, numBreaks, srid, polyMaskParam, layerMaskParam)
+            if (result == expected) {
+              "OK"
+            } else {
+              throw new RuntimeException("Health check: expected breaks '" + expected + "' but got '" + result + "'")
+            }
+          }
         }
       }
     }
@@ -88,48 +95,53 @@ trait TileService extends HttpService
           respondWithMediaType(MediaTypes.`application/json`) {
             complete {
               future {
-                val extent = Extent.fromString(bbox)
-                // TODO: Dynamic breaks based on configurable breaks resolution.
-
-                val layers = layersParam.split(",")
-                val weights = weightsParam.split(",").map(_.toInt)
-
-                val parsedLayerMask = try {
-                  import spray.json.DefaultJsonProtocol._
-                  Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
-                } catch {
-                  case ex: ParsingException =>
-                    if (!layerMaskParam.isEmpty)
-                      ex.printStackTrace(Console.err)
-                    None
-                }
-
-                val polys = reprojectPolygons(
-                  parsePolyMaskParam(polyMaskParam),
-                  srid
-                )
-
-                clipExtentToExtentOfPolygons(extent, polys) match {
-                  case None => s"""{ "error" : "Polygon masks do not intersect map bounds."}"""
-                  case Some(extentClipped) => {
-                    val unmasked = weightedOverlayForBreaks(implicitly, catalog, layers, weights, extent, extentClipped)
-                    val masked = applyMasks(
-                      unmasked,
-                      polyMask(polys),
-                      layerMask(TileGetter.getMasksFromCatalog(implicitly, catalog, parsedLayerMask, extentClipped, TileGetter.breaksZoom))
-                    )
-                    val breaks = masked.classBreaksExactInt(numBreaks)
-                    if (breaks.size > 0 && breaks(0) == NODATA) {
-                      s"""{ "error" : "Unable to calculate breaks (NODATA)."} """
-                    } else {
-                      val breaksArray = breaks.mkString("[", ",", "]")
-                      s"""{ "classBreaks" : $breaksArray }"""
-                    }
-                  }
-                }
+                computeBreaks(bbox, layersParam, weightsParam, numBreaks, srid, polyMaskParam, layerMaskParam)
               }
             }
           }
+        }
+      }
+    }
+  }
+
+  def computeBreaks(bbox: String, layersParam: String, weightsParam: String, numBreaks: Int, srid: Int,
+                    polyMaskParam: String, layerMaskParam: String): String = {
+    val extent = Extent.fromString(bbox)
+    // TODO: Dynamic breaks based on configurable breaks resolution.
+
+    val layers = layersParam.split(",")
+    val weights = weightsParam.split(",").map(_.toInt)
+
+    val parsedLayerMask = try {
+      import spray.json.DefaultJsonProtocol._
+      Some(layerMaskParam.parseJson.convertTo[LayerMaskType])
+    } catch {
+      case ex: ParsingException =>
+        if (!layerMaskParam.isEmpty)
+          ex.printStackTrace(Console.err)
+        None
+    }
+
+    val polys = reprojectPolygons(
+      parsePolyMaskParam(polyMaskParam),
+      srid
+    )
+
+    clipExtentToExtentOfPolygons(extent, polys) match {
+      case None => s"""{ "error" : "Polygon masks do not intersect map bounds."}"""
+      case Some(extentClipped) => {
+        val unmasked = weightedOverlayForBreaks(implicitly, catalog, layers, weights, extent, extentClipped)
+        val masked = applyMasks(
+          unmasked,
+          polyMask(polys),
+          layerMask(TileGetter.getMasksFromCatalog(implicitly, catalog, parsedLayerMask, extentClipped, TileGetter.breaksZoom))
+        )
+        val breaks = masked.classBreaksExactInt(numBreaks)
+        if (breaks.size > 0 && breaks(0) == NODATA) {
+          s"""{ "error" : "Unable to calculate breaks (NODATA)."} """
+        } else {
+          val breaksArray = breaks.mkString("[", ",", "]")
+          s"""{ "classBreaks" : $breaksArray }"""
         }
       }
     }
