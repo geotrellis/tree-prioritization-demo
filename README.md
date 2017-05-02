@@ -53,11 +53,10 @@ Arguments:
 
 | Name       | Required? | Type    |  Description |
 |------------|-----------|---------|--------------|
-| bbox       | Yes       | String  | Bounding box projected as WebMercator. Format: `xmin,ymin,xmax,ymax`
+| bbox       | Yes       | String  | Bounding box (lat/long). Format: `xmin,ymin,xmax,ymax`
 | layers     | Yes       | String  | Layer names (comma delimited). Should match the source raster file names.
 | weights    | Yes       | String  | Layer weights (comma delimited integers) for corresponding layer. Negative weight inverts the tile value.
 | numBreaks  | Yes       | Int     | Number of result class breaks.
-| srid       | Yes       | Int     | Spatial Reference Identifier. Acceptable values are `3857` or `4326`.
 | threshold  |           | Int     | Exclude values lower than this value in class breaks calculation. (Default: `NODATA`)
 | polyMask   |           | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
 | layerMask  |           | JSON    | Exclude values from result. Map of layer names to selected raster values. Format: `{ LayerName: [1, 2, 3], ...}`
@@ -83,11 +82,10 @@ Arguments:
 | width      | Yes       | Int     | *Used by Leaflet.*
 | height     | Yes       | Int     | *Used by Leaflet.*
 | palette    |           | String  | *Used by Leaflet.* Comma delimited list of hexadecimal values. (Default: `ff0000,ffff00,00ff00,0000ff`)
-| bbox       | Yes       | String  | Bounding box projected as WebMercator. Format: `xmin,ymin,xmax,ymax`
+| bbox       | Yes       | String  | Bounding box (lat/long). Format: `xmin,ymin,xmax,ymax`
 | layers     | Yes       | String  | Layer names (comma delimited). Should match the source raster file names.
 | weights    | Yes       | String  | Layer weights (comma delimited integers) for corresponding layer. Negative weight inverts the tile value.
 | breaks     | Yes       | String  | Class breaks (comma delimited integers)
-| srid       | Yes       | Int     | Spatial Reference Identifier. Acceptable values are `3857` or `4326`.
 | colorRamp  |           | String  | Color ramp name. (Default: `blue-to-red`)
 | threshold  |           | Int     | Exclude values lower than this value in class breaks calculation. (Default: `NODATA`)
 | polyMask   |           | GeoJSON | Exclude points not inside polygon. Should contain a FeatureCollection with Polygons or MultiPolygons.
