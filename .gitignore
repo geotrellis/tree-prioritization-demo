@@ -1,11 +1,12 @@
-project/boot
-project/plugins/project
-project/plugins/target
-project/target
-target
-build
-combined
-data
+src/app-backend/project/boot
+src/app-backend/project/plugins/project
+src/app-backend/project/plugins/target
+src/app-backend/project/project
+src/app-backend/project/target
+src/app-backend/target
+src/app-backend/tile/target
+src/app-backend/.sbt
+
 .ensime
 TAGS
 \#*#
@@ -18,3 +19,16 @@ Thumbs.db
 *.swp
 
 docker-s3-proxy-cache
+
+# Vagrant
+.vagrant
+
+
+# Node and Webpack
+node_modules/
+npm-debug.log
+index.html
+pgw.communitymapping*.js
+pgw.communitymapping*.js.map
+vendor.bundle.js
+src/app-frontend/dist/
