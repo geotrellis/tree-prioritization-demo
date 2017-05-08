@@ -37,15 +37,24 @@ function expandTemplates() {
 }
 
 function createMap(bounds) {
-    var basemapMapping = {
-            'Streets':   L.gridLayer.googleMutant({type: 'roadmap'}),
-            'Hybrid':    L.gridLayer.googleMutant({type: 'hybrid'}),
-            'Satellite': L.gridLayer.googleMutant({type: 'satellite'}),
-            'Terrain':   L.gridLayer.googleMutant({type: 'terrain'})
-        },
-        map = L.map('map');
-
+    var map = L.map('map'),
+        baseMapPaneName = 'base-map';
+    map.createPane(baseMapPaneName);  // CSS class 'leaflet-base-map-pane'
     map.fitBounds(bounds);
+
+    var basemapMapping = {
+            'Streets':   makeBaseLayer('roadmap'),
+            'Hybrid':    makeBaseLayer('hybrid'),
+            'Satellite': makeBaseLayer('satellite'),
+            'Terrain':   makeBaseLayer('terrain')
+        };
+
+    function makeBaseLayer(type) {
+        return L.gridLayer.googleMutant({
+            type: type,
+            pane: baseMapPaneName
+        });
+    }
 
     map.addLayer(basemapMapping['Streets']);
     L.control.layers(basemapMapping).addTo(map);
