@@ -72,6 +72,8 @@ function init(options) {
 
         presetChangedStream = initDropdownStream(dom.presetsDropdown);
 
+    initTransparencySlider();
+
     parameterChangedStream
         .debounce(500)
         .map(getBreaksUrl)
@@ -150,6 +152,11 @@ var getClassBreaks = (function() {
         });
     };
 }());
+
+function initTransparencySlider() {
+    initSliderStream(dom.transparencySlider)
+        .onValue(setOpacity);
+}
 
 function initPriorityThresholdChangedStream() {
     return initSliderStream(dom.priorityThresholdSlider)
