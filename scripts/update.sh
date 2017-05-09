@@ -2,14 +2,13 @@
 
 set -e
 
-if [[ -n "${PC_DEMO_DEBUG}" ]]; then
+if [[ -n "${TPSP_DEBUG}" ]]; then
     set -x
 fi
 
 function usage() {
     echo -n \
          "Usage: $(basename "$0")
-
 Builds and pulls container images using docker-compose.
 "
 }
@@ -20,9 +19,12 @@ then
     then
         usage
     else
+        echo "Installing Node.js dependencies"
         docker-compose \
-            -f docker-compose.yml \
-            run --rm --no-deps app \
-            npm install --quiet
+            run --rm app-frontend install --pure-lockfile
+
+        echo "Building JAR"
+        docker-compose \
+            run --rm --entrypoint ./sbt api-server assembly
     fi
 fi

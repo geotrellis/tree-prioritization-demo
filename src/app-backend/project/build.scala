@@ -99,6 +99,7 @@ object OTMModelingBuild extends Build {
         "io.spray" %% "spray-can" % Version.spray,
         "org.apache.spark" %% "spark-core" % Version.spark % "provided",
         "org.apache.hadoop" % "hadoop-client" % Version.hadoop % "provided",
+        "javax.media" % "jai_core" % "1.1.3" from "http://download.osgeo.org/webdav/geotools/javax/media/jai_core/1.1.3/jai_core-1.1.3.jar",
         // Begin Rollbar
         "com.storecove" %% "rollbar-scala" % "1.0",
         "net.databinder.dispatch" %% "dispatch-core" % "0.11.2",
@@ -117,7 +118,7 @@ object OTMModelingBuild extends Build {
   lazy val tileSettings =
     Seq(
       name := "otm-modeling",
-      jarName in assembly := s"otm-modeling-${Version.modeling}.jar",
+      jarName in assembly := s"otm-modeling.jar",
       mainClass := Some("org.opentreemap.modeling.Main")
     ) ++ rootSettings
 
