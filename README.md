@@ -2,7 +2,7 @@
 
 ### Requirements
 
-* Vagrant 1.8+
+* Vagrant 1.9+
 * VirtualBox 4.3+
 * Ansible 2.2+
 

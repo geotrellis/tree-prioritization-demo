@@ -2,7 +2,7 @@
 
 set -e
 
-if [[ -n "${PC_DEMO_DEBUG}" ]]; then
+if [[ -n "${TPSP_DEBUG}" ]]; then
     set -x
 fi
 
@@ -20,9 +20,6 @@ then
         usage
     else
         if ansible --version | grep -q "ansible 2.2."; then
-            cd src/app-backend
-            ./sbt assembly
-            cd ../..
             vagrant up --provision
             vagrant ssh -c "cd /vagrant && ./scripts/update.sh"
         else

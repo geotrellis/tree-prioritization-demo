@@ -1,4 +1,6 @@
 src/app-backend/project/boot
+src/app-backend/project/.boot
+src/app-backend/project/.ivy
 src/app-backend/project/plugins/project
 src/app-backend/project/plugins/target
 src/app-backend/project/project
@@ -18,11 +20,10 @@ TAGS
 Thumbs.db
 *.swp
 
-docker-s3-proxy-cache
-
-# Vagrant
+# Deployment
 .vagrant
-
+deployment/ansible/roles/azavea.*
+*.retry
 
 # Node and Webpack
 node_modules/

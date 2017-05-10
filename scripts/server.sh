@@ -2,7 +2,7 @@
 
 set -e
 
-if [[ -n "${PC_DEMO_DEBUG}" ]]; then
+if [[ -n "${TPSP_DEBUG}" ]]; then
     set -x
 fi
 
@@ -22,10 +22,7 @@ then
     if [ "${1:-}" = "--help" ]
     then
         usage
-    elif [ "${1:-}" = "--production" ]
-    then
-        pushd dist && python -m SimpleHTTPServer 8000
     else
-        docker-compose -f docker-compose.yml up
+        docker-compose up
     fi
 fi

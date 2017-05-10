@@ -1,28 +1,28 @@
-version: '2'
+version: "2.1"
 services:
-  app:
-    image: node:6.9-slim
+  app-frontend:
+    image: node:6.10-slim
     working_dir: /usr/src
     ports:
       - "8286:8286"
     volumes:
-        - ./src/app-frontend:/usr/src
-        - ./dist:/usr/dist
-        # Ensure node_modules cache doesn't clash with other jobs on CI.
-        - /var/cache/pc-demo-node-modules:/usr/src/node_modules
-    command: npm run dev-server
-  server:
+      - ./src/app-frontend:/usr/src
+      - ./dist:/usr/dist
+      - /var/cache/tpsp-demo-node-modules:/usr/src/node_modules
+    entrypoint: yarn
+    command: run dev-server
+
+  api-server:
     image: quay.io/azavea/spark:1.5.2
     ports:
       - "7072:7072"
     volumes:
-        - ./src/app-backend/:/opt/app-backend/
-        - ./src/app-backend/.sbt:/root/.sbt
-        - /home/vagrant/.ivy2/:/root/.ivy2
-        - $HOME/.aws:/root/.aws:ro
+      - ./src/app-backend/:/usr/src
+      - ./src/app-backend/.sbt:/root/.sbt
+      - $HOME/.aws:/root/.aws:ro
     environment:
       - AWS_PROFILE=geotrellis
       - PORT=7072
-    working_dir: /opt/app-backend/
+    working_dir: /usr/src
     entrypoint: spark-submit
-    command: --master local[*] tile/target/scala-2.10/otm-modeling-1.5.1.jar
+    command: --master local[*] tile/target/scala-2.10/otm-modeling.jar
