@@ -264,7 +264,8 @@ function updatePriorityLayer(map, breaks) {
         if (!_priorityLayer) {
             var options = {
                 bounds: _bounds,
-                tileSize: 512
+                tileSize: 512,
+                zoomOffset: -1  // https://github.com/locationtech/geotrellis/issues/1550
             };
             _priorityLayer = new L.TileLayer(url, options);
             _priorityLayer.on('loading', function() {
