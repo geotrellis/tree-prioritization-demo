@@ -198,16 +198,11 @@ trait TileService extends HttpService
                     4326
                   )
 
-                  // Our tiles are 512x512. Requesting Leaflet's z/x/y gives a "tile does not exist" error.
-                  // But requesting a zoom one level out works.
-                  // Apparently Leaflet and GeoTrellis have different ideas of TMS numbering for 512x512 tiles.
-                  val zoom = z - 1
-
-                  val unmasked = weightedOverlay(implicitly, catalog, tileReader, layers, weights, extent, zoom, x, y)
+                  val unmasked = weightedOverlay(implicitly, catalog, tileReader, layers, weights, extent, z, x, y)
                   val masked = applyTileMasks(
                     unmasked,
-                    polyTileMask(polys, zoom, x, y),
-                    layerTileMask(TileGetter.getMaskTiles(implicitly, catalog, tileReader, parsedLayerMask, zoom, x, y)),
+                    polyTileMask(polys, z, x, y),
+                    layerTileMask(TileGetter.getMaskTiles(implicitly, catalog, tileReader, parsedLayerMask, z, x, y)),
                     thresholdTileMask(threshold)
                   )
 
