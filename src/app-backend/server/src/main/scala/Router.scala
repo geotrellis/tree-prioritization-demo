@@ -137,20 +137,14 @@ trait Router extends Directives
   def routes =
     pathPrefix("gt" / "health-check") {
       get {
-        val bbox = "-93.62626,44.63635,-92.72795,45.27205"
-        val layersParam = "us-census-population-density-30m-epsg3857"
-        val weightsParam = "2"
-        val numBreaks = 10
-        val polyMaskParam = ""
-        val layerMaskParam = ""
-        val expected = "{ \"classBreaks\" : [10,20,28,36,48,68,94,130,164,198] }"
         complete {
           Future {
-            val result = computeBreaks(bbox, layersParam, weightsParam, numBreaks, polyMaskParam, layerMaskParam)
-            if (result == expected) {
+            val result =
+              attributeStore.layerIds
+            if (!result.isEmpty) {
               "OK"
             } else {
-              throw new RuntimeException("Health check: expected breaks '" + expected + "' but got '" + result + "'")
+              throw new RuntimeException("Health check: layers did not list from catalog'")
             }
           }
         }

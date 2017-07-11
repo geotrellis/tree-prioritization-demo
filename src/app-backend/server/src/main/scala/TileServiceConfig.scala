@@ -11,19 +11,8 @@ object TileServiceConfig {
 
   private val config = ConfigFactory.load()
 
-  private def envOrElse[T](envVar: String, convertEnv: String => T, default: =>T): T = {
-    Option(System.getenv(envVar)) match {
-      case Some(x) => try {
-          convertEnv(x)
-        } catch {
-          case _ : Throwable => default
-        }
-      case None => default
-    }
-  }
-
-  val configHost = envOrElse("HOST", { x => x }, config.as[String]("http.interface"))
-  val configPort = envOrElse("PORT", { x => x.toInt }, config.as[Int]("http.port"))
+  val configHost = config.as[String]("http.interface")
+  val configPort = config.as[Int]("http.port")
   val rollbarAccessToken = System.getenv("ROLLBAR_SERVER_SIDE_ACCESS_TOKEN")
   val otmStackType = System.getenv("OTM_STACK_TYPE")
 
