@@ -7,7 +7,7 @@ import geotrellis.spark._
 trait LayerMasking {
 
   /** Combine multiple polygons into a single mask raster. */
-  def polyMask(polyMasks: Iterable[Polygon])(model: TileLayerRDD[SpatialKey]): TileLayerRDD[SpatialKey] = {
+  def polyMask(polyMasks: Iterable[Polygon])(model: TileLayerCollection[SpatialKey]): TileLayerCollection[SpatialKey] = {
     if (polyMasks.size > 0) {
       model.mask(polyMasks)
     } else {
@@ -20,11 +20,11 @@ trait LayerMasking {
     * points that have values in every `layerMask`. (AND-like operation)
     */
 
-  def layerMask(layerMasks: Iterable[TileLayerRDD[SpatialKey]])(model: TileLayerRDD[SpatialKey]): TileLayerRDD[SpatialKey] = {
+  def layerMask(layerMasks: Iterable[TileLayerCollection[SpatialKey]])(model: TileLayerCollection[SpatialKey]): TileLayerCollection[SpatialKey] = {
     if (layerMasks.size > 0) {
       layerMasks.foldLeft(model) { (rdd, mask) =>
-        rdd.withContext {
-          _.join(mask).combineValues {
+        rdd.withContext { seq =>
+          seq.combineValues(mask) {
             _.combine(_) { (z, maskValue) =>
               if (isData(maskValue)) z
               else NODATA
@@ -38,7 +38,7 @@ trait LayerMasking {
   }
 
   /** Filter all values from `model` that are less than `threshold`. */
-  def thresholdMask(threshold: Int)(model: TileLayerRDD[SpatialKey]): TileLayerRDD[SpatialKey] = {
+  def thresholdMask(threshold: Int)(model: TileLayerCollection[SpatialKey]): TileLayerCollection[SpatialKey] = {
     if (isData(threshold)) {
       model.withContext {
         _.localMap { z =>
@@ -52,8 +52,8 @@ trait LayerMasking {
   }
 
   /** Filter model by 1 or more masks. */
-  def applyMasks(model: TileLayerRDD[SpatialKey],
-                 masks: (TileLayerRDD[SpatialKey] => TileLayerRDD[SpatialKey])*
+  def applyMasks(model: TileLayerCollection[SpatialKey],
+                 masks: (TileLayerCollection[SpatialKey] => TileLayerCollection[SpatialKey])*
                 ) = {
     masks.foldLeft(model) { (rdd, mask) =>
       mask(rdd)
