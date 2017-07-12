@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+if [[ -n "${GT_MODELING_DEBUG}" ]]; then
+    set -x
+fi
+
+function usage() {
+    echo -n \
+"Usage: $(basename "$0")
+Run various test suites.
+"
+}
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]
+then
+    if [ "${1:-}" = "--help" ]
+    then
+        usage
+    else
+
+        docker-compose run --rm api-server clean
+        docker-compose run --rm api-server update
+        docker-compose run --rm api-server test
+
+    fi
+    exit
+fi

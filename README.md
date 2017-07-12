@@ -11,24 +11,24 @@
 * Make sure you have a `geotrellis` profile in your aws-cli profiles, with keys that can access your data on S3
 * Clone the project
 * `cd` into the directory
-* Run `scripts/setup.sh`, which will:
+* Run `scripts/setup`, which will:
   * Build the tile server JAR
   * Create a Vagrant VM
   * Build two Docker containers:
     1. Front end, running Webpack dev server and listening on port 8286
-    2. Back end, running the tile server and listening on port 7072
+    2. Back end, running the tile server and listening on port 8777
 
 #### Run
 
 The other project scripts are meant to execute in the VM in the `/vagrant` directory. To run the container during development use the following commands:
 
 * `vagrant ssh`
-* `scripts/server.sh`
+* `scripts/server`
 * Browse to http://localhost:8286
 
 #### Notes
 
-`scripts/setup.sh` can also be used to restore the project to its initial state: it will re-provision the VM, then remove and
+`scripts/setup` can also be used to restore the project to its initial state: it will re-provision the VM, then remove and
 rebuild the Docker container(s). (Note: this will destroy the VM's existing Docker container before rebuilding it.)
 
 HTML for the front end is in `src/app-frontend/template.handlebars`. 
