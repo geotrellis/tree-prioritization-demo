@@ -13,6 +13,9 @@ Vagrant.configure(2) do |config|
     vb.cpus = 2
   end
 
+  # nginx
+  config.vm.network :forwarded_port, guest: 8080, host: 8080
+
   # webpack-dev-server
   config.vm.network :forwarded_port, guest: 8286, host: 8286
   # API
