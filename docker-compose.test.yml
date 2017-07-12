@@ -1,12 +1,12 @@
 version: "2.1"
 services:
   nginx:
-    image: gt-modeling-nginx:${VERSION:-latest}
+    image: gt-tree-prioritization-nginx:${VERSION:-latest}
     build:
       context: ./nginx
       dockerfile: Dockerfile
   api-server:
-    image: gt-modeling:${VERSION:-latest}
+    image: gt-tree-prioritization:${VERSION:-latest}
     build:
       context: ./src/app-backend
       dockerfile: Dockerfile
