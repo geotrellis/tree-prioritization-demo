@@ -7,7 +7,7 @@ services:
       - "8286:8286"
     volumes:
       - ./src/app-frontend:/usr/src
-      - ./dist:/usr/dist
+      - ./nginx/srv/dist:/usr/src/dist
       - /var/cache/tpsp-demo-node-modules:/usr/src/node_modules
     entrypoint: yarn
     command: run dev-server

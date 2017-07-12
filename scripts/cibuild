@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -e
+
+if [[ -n "${GT_MODELING_DEBUG}" ]]; then
+    set -x
+fi
+
+DIR="$(dirname "$0")"
+
+function usage() {
+    echo -n \
+"Usage: $(basename "$0")
+Build application for staging or release.
+"
+}
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    if [ "${1:-}" = "--help" ]; then
+        usage
+    else
+
+        echo "Running tests..."
+        "${DIR}/test"
+        echo "Tests complete!"
+
+        echo "Building static site..."
+
+        docker-compose run --rm app-frontend install --pure-lockfile
+        docker-compose run --rm app-frontend bundle
+        echo "Static asset bundle complete!"
+    fi
+fi
