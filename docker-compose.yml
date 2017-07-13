@@ -25,14 +25,13 @@ services:
   api-server:
     image: openjdk:8-jre
     ports:
-      - "7072:7072"
+      - "8777:8777"
     volumes:
       - ./src/app-backend/:/usr/src
       - ./src/app-backend/.sbt:/root/.sbt
       - $HOME/.aws:/root/.aws:ro
     environment:
       - AWS_PROFILE=geotrellis
-      - PORT=7072
     working_dir: /usr/src
     entrypoint: ./sbt
     command: ~server/reStart

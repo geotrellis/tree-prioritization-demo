@@ -19,7 +19,7 @@ Vagrant.configure(2) do |config|
   # webpack-dev-server
   config.vm.network :forwarded_port, guest: 8286, host: 8286
   # API
-  config.vm.network :forwarded_port, guest: 7072, host: 7072
+  config.vm.network :forwarded_port, guest: 8777, host: 8777
 
   # Change working directory to /vagrant upon session start.
   config.vm.provision "shell", inline: <<SCRIPT
