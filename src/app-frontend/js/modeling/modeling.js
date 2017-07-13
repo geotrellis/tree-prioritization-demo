@@ -11,9 +11,13 @@ require('es6-promise').polyfill(); // https://gitlab.com/IvanSanchez/Leaflet.Gri
 require('leaflet.gridlayer.googlemutant');
 
 function init() {
-    var urlPrefix = 'http://' + window.location.hostname + ':7072/gt/',
-        // Minneapolis / St Paul
-        bounds = L.latLngBounds([44.63635, -93.62626], [45.27205, -92.72795]);
+    if (window.location.hostname == "localhost"){
+        var urlPrefix = 'http://' + window.location.hostname + ':8080/tile/gt/';
+    } else {
+        var urlPrefix = 'http://' + window.location.hostname + '/tile/gt/';
+    }
+    // Minneapolis / St Paul
+    var bounds = L.latLngBounds([44.63635, -93.62626], [45.27205, -92.72795]);
 
     expandTemplates();
     prioritization.init({

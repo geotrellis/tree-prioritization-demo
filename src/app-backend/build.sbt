@@ -20,6 +20,7 @@ lazy val commonSettings = Seq(
   fork in Test := true,
   parallelExecution in Test := false,
   test in assembly := {},
+  assemblyJarName in assembly := "otm-modeling-server.jar",
   libraryDependencies += { scalaVersion ("org.scala-lang" % "scala-reflect" % _) }.value,
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.3"),
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
