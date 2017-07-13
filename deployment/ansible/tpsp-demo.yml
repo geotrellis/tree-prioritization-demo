@@ -9,6 +9,7 @@
   roles:
     - { role: "azavea.ntp" }
     - { role: "azavea.terraform" }
+    - { role: "azavea.python-security", when: 'ansible_python_version | version_compare("2.7.9", "<")' }
     - { role: "tpsp-demo.aws-cli" }
     - { role: "tpsp-demo.docker" }
     - { role: "tpsp-demo.shellcheck" }
