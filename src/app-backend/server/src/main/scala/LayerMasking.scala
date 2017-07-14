@@ -22,8 +22,8 @@ trait LayerMasking {
 
   def layerMask(layerMasks: Iterable[TileLayerCollection[SpatialKey]])(model: TileLayerCollection[SpatialKey]): TileLayerCollection[SpatialKey] = {
     if (layerMasks.size > 0) {
-      layerMasks.foldLeft(model) { (rdd, mask) =>
-        rdd.withContext { seq =>
+      layerMasks.foldLeft(model) { (layer, mask) =>
+        layer.withContext { seq =>
           seq.combineValues(mask) {
             _.combine(_) { (z, maskValue) =>
               if (isData(maskValue)) z
@@ -55,8 +55,8 @@ trait LayerMasking {
   def applyMasks(model: TileLayerCollection[SpatialKey],
                  masks: (TileLayerCollection[SpatialKey] => TileLayerCollection[SpatialKey])*
                 ) = {
-    masks.foldLeft(model) { (rdd, mask) =>
-      mask(rdd)
+    masks.foldLeft(model) { (layer, mask) =>
+      mask(layer)
     }
   }
 

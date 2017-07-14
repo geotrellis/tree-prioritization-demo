@@ -85,7 +85,7 @@ trait TileServiceLogic { self: ReaderSet with TileGetter =>
     if (normalizerCache.contains(key)) {
       normalizerCache(key)
     } else {
-      // Fetch the RDD if we don't already have it
+      // Fetch the layer if we don't already have it
       val layer = if (layerOrNull != null) layerOrNull else
         getLayer(layerName, bounds)
       val breaks = layer.classBreaksExactInt(normalizedBins)
