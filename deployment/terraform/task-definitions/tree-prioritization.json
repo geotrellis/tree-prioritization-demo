@@ -1,0 +1,39 @@
+[
+    {
+        "name": "nginx",
+        "image": "${tp_nginx_image}",
+        "cpu": 10,
+        "memory": 512,
+        "essential": true,
+        "links": ["api-server"],
+        "portMappings": [
+            {
+                "containerPort": 443,
+                "hostPort": 0
+            }
+        ],
+        "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+                "awslogs-group": "log${tp_environment}TreePrioritization",
+                "awslogs-region": "${tp_region}",
+                "awslogs-stream-prefix": "tree-prioritization"
+            }
+        }
+    },
+    {
+        "name": "api-server",
+        "image": "${tp_api_server_image}",
+        "cpu": 10,
+        "memory": 2048,
+        "essential": true,
+        "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+                "awslogs-group": "log${tp_environment}TreePrioritization",
+                "awslogs-region": "${tp_region}",
+                "awslogs-stream-prefix": "tree-prioritization"
+            }
+        }
+    }
+]
