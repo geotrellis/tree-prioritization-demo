@@ -48,3 +48,8 @@ target
 .#*
 dist
 tile.png
+
+# Terraform
+deployment/terraform/.terraform
+deployment/terraform/*.tfstate*
+deployment/terraform/*.tfplan
