@@ -1,0 +1,33 @@
+sudo: required
+language: bash
+cache:
+  directories:
+  - ${HOME}/.node_modules
+  - ./src/app-backend/project/.boot
+  - ./src/app-backend/project/.ivy
+services: docker
+env:
+  global:
+  - TERRAFORM_VERSION=0.9.6
+  - AWSCLI_VERSION=1.11.*
+  - DOCKER_COMPOSE_VERSION=1.13.*
+  - GT_TREE_PRIORITIZATION_SETTINGS_BUCKET=geotrellis-site-production-config-us-east-1
+  - AWS_DEFAULT_REGION=us-east-1
+script:
+- mkdir -p ~/.local/bin
+- export PATH="~/.local/bin:$PATH"
+- pip install --user docker-compose==${DOCKER_COMPOSE_VERSION}
+- scripts/cibuild
+before_deploy:
+- wget -O terraform-${TERRAFORM_VERSION}.zip https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+- unzip -d ~/.local/bin terraform-${TERRAFORM_VERSION}.zip
+- pip install --user awscli==${AWSCLI_VERSION}
+- rm terraform-${TERRAFORM_VERSION}.zip
+deploy:
+  provider: script
+  skip_cleanup: true
+  script: scripts/deploy
+  on:
+    branch: master
+after_deploy:
+- rm deployment/terraform/${GT_TREE_PRIORITIZATION_SETTINGS_BUCKET}.tfplan

@@ -2,7 +2,7 @@
 
 set -e
 
-if [[ -n "${TPSP_DEBUG}" ]]; then
+if [[ -n "${GT_TREE_PRIORITIZATION_DEBUG}" ]]; then
     set -x
 fi
 
