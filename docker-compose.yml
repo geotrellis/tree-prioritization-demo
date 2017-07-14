@@ -8,7 +8,7 @@ services:
     volumes:
       - ./src/app-frontend:/usr/src
       - ./nginx/srv/dist:/usr/src/dist
-      - /var/cache/tpsp-demo-node-modules:/usr/src/node_modules
+      - ${HOME}/.node_modules:/usr/src/node_modules
     entrypoint: yarn
     command: run dev-server
   nginx:
@@ -28,8 +28,8 @@ services:
       - "8777:8777"
     volumes:
       - ./src/app-backend/:/usr/src
-      - ./src/app-backend/.sbt:/root/.sbt
-      - $HOME/.aws:/root/.aws:ro
+      - ${HOME}/.sbt:/root/.sbt
+      - ${HOME}/.aws:/root/.aws:ro
     environment:
       - AWS_PROFILE=geotrellis
     working_dir: /usr/src
