@@ -53,8 +53,7 @@ trait Router extends Directives
     with TileGetter
     with VectorHandling
     with LayerMasking
-    with TileLayerMasking
-    with Rollbar { self: ReaderSet =>
+    with TileLayerMasking { self: ReaderSet =>
 
   import AkkaSystem.materializer
 

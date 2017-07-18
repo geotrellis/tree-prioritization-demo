@@ -13,7 +13,6 @@ object TileServiceConfig {
 
   val configHost = config.as[String]("http.interface")
   val configPort = config.as[Int]("http.port")
-  val rollbarAccessToken = System.getenv("ROLLBAR_SERVER_SIDE_ACCESS_TOKEN")
   val otmStackType = System.getenv("OTM_STACK_TYPE")
 
   val catalogPath = config.as[String]("server.catalog")
