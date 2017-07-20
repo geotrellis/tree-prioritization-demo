@@ -22,8 +22,6 @@ then
         echo "Installing Node.js dependencies"
         docker-compose \
             run --rm app-frontend install --pure-lockfile
-        docker-compose \
-            run --rm app-frontend rebuild
 
         echo "Building JAR"
         docker-compose \
