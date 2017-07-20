@@ -1,0 +1,136 @@
+// Partial: Map Page
+
+.map {
+    left: 0;
+    background: $well-color;
+    position: absolute;
+    bottom: 0;
+    top: 0;
+    right: 350px;
+    z-index: 1;
+}
+
+.leaflet-base-map-pane {
+	z-index: 50;
+}
+
+.leaflet-control-container {
+    // Overrides Leaflet button in bottom-right
+    .leaflet-bottom.leaflet-right {
+        margin: 0 !important;
+
+        .leaflet-control {
+            margin-right: 0;
+        }
+    }
+}
+
+.leaflet-control {
+
+    &.leaflet-control-attribution {
+        margin-bottom: 14px;
+        margin-right: 0;
+    }
+
+    &.leaflet-control-zoom {
+
+        > a {
+            color: black;
+        }
+    }
+
+    &.leaflet-control-layers {
+        .leaflet-control-layers-list {
+            margin: 0;
+            padding-bottom: 3px;
+        }
+        .leaflet-control-layers-base {
+
+            label {
+                font-size: 1.4rem;
+                padding: 0 8px;
+                margin-bottom: 3px;
+
+                .leaflet-control-layers-selector {
+                    margin: 0 4px 0 0;
+
+                    & + span {
+                        top: 2px;
+                        position: relative;
+                    }
+                }
+            }
+        }
+    }
+}
+
+@keyframes pulse {
+    0%  { opacity: 1; }
+    30% { opacity: 0.5; }
+    60% { opacity: 1; }
+}
+
+// fix typeaheads in input-groups
+.input-group {
+    .twitter-typeahead {
+        width: 100%;
+        float: left;
+        &:first-child {
+            border-left-radius: 4px;
+            width: 100%;
+        }
+        &:last-child {
+            border-right-radius: 4px;
+            width: 100%;
+        }
+    }
+}
+
+.tt-menu {
+    margin-top: 10px;
+    padding: 0;
+    width: 100%;
+    font-size: 1.2rem;
+    position: relative;
+    border: 1px solid $well-color;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0px 3px 0px rgba(0, 3, 0, 0.3);
+
+    &:before {
+        content: '';
+        width: 0;
+        height: 0;
+        position: absolute;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-bottom: 10px solid $well-color;
+        top: -10px;
+        left: 10px;
+    }
+
+    .tt-dataset {
+        max-height: 300px;
+        overflow: auto;
+        cursor: pointer;
+
+        .tt-suggestion {
+            padding: 8px 10px;
+            border-bottom: 1px solid $light-gray-color;
+
+            &.tt-cursor,
+            &:hover {
+                background-color: $light-gray-color;
+            }
+            &:last-child {
+                border: none;
+            }
+
+            p {
+                line-height: 1.6rem;
+                margin: 0;
+                font-size: 1.2rem;
+            }
+        }
+    }
+}

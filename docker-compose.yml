@@ -1,0 +1,28 @@
+version: "2.1"
+services:
+  app-frontend:
+    image: node:6.10-slim
+    working_dir: /usr/src
+    ports:
+      - "8286:8286"
+    volumes:
+      - ./src/app-frontend:/usr/src
+      - ./dist:/usr/dist
+      - /var/cache/tpsp-demo-node-modules:/usr/src/node_modules
+    entrypoint: yarn
+    command: run dev-server
+
+  api-server:
+    image: openjdk:8-jre
+    ports:
+      - "7072:7072"
+    volumes:
+      - ./src/app-backend/:/usr/src
+      - ./src/app-backend/.sbt:/root/.sbt
+      - $HOME/.aws:/root/.aws:ro
+    environment:
+      - AWS_PROFILE=geotrellis
+      - PORT=7072
+    working_dir: /usr/src
+    entrypoint: ./sbt
+    command: ~server/reStart

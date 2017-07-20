@@ -1,0 +1,31 @@
+// Partial: Typography
+
+html {
+    font-size: $base-font-size;
+}
+
+body {
+	font-family: $base-font-family;
+	font-size: 1.6rem;
+}
+
+h1, h2, h3, h4, h4, h5 {
+	font-family: $base-font-family;
+	font-weight: 300;
+	margin: 0 0 1.2rem;
+}
+
+p, li {
+	line-height: 2.1rem;
+	font-size: 1.4rem;
+
+	label {
+		font-size: 1.4rem;
+	}
+}
+
+label {
+	color: $subtext-color;
+	font-size: 1.2rem;
+	font-weight: 400;
+}
