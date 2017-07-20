@@ -33,3 +33,16 @@ pgw.communitymapping*.js
 pgw.communitymapping*.js.map
 vendor.bundle.js
 src/app-frontend/dist/
+
+# Scala
+project/boot
+project/plugins/project
+project/plugins/target
+project/target
+target
+.ensime
+
+# Emacs
+\#*#
+*~
+.#*
