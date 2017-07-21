@@ -2,22 +2,18 @@
 
 var $ = require('jquery'),
     L = require('leaflet'),
-    BU = require('./baconUtils.js'),
     prioritization = require('./prioritization.js'),
     template = require('./template.js'),
     geocoder = require('./geocoder.js');
+
+var dom = {
+    geocode: '#geocode'
+}
 
 require("../../assets/css/sass/main.scss");
 
 require('es6-promise').polyfill(); // https://gitlab.com/IvanSanchez/Leaflet.GridLayer.GoogleMutant
 require('leaflet.gridlayer.googlemutant');
-
-function searchBoxStream(inputSelector) {
-    return  $(inputSelector)
-        .asEventStream('keyup')
-        .map(function () { return $(inputSelector).val();})
-        .sampledBy(BU.enterOrClickEventStream({inputs: inputSelector}));
-}
 
 function centerToBounds(center) {
     // 10,000 meters is a roughly city size boundary
@@ -51,10 +47,8 @@ function init() {
     if (query.center) {
         bounds = centerToBounds(L.latLng(JSON.parse('[' + query.center + ']')));
     }
-
-    var addressStream = searchBoxStream('#geocode');
-    var centerStream = geocoder.createGeocodeStream(addressStream);
-
+ 
+    var centerStream = geocoder.createGeocodeStream(dom.geocode);
     centerStream.map(centerToParam).onValue(pushCenterParamToUrl);
 
     var boundsStream = centerStream.map(centerToBounds);
