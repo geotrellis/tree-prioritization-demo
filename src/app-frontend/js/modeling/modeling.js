@@ -2,6 +2,7 @@
 
 var $ = require('jquery'),
     L = require('leaflet'),
+    toastr = require('toastr'),
     prioritization = require('./prioritization.js'),
     template = require('./template.js'),
     geocoder = require('./geocoder.js');
@@ -47,9 +48,12 @@ function init() {
     if (query.center) {
         bounds = centerToBounds(L.latLng(JSON.parse('[' + query.center + ']')));
     }
- 
+
     var centerStream = geocoder.createGeocodeStream(dom.geocode);
     centerStream.map(centerToParam).onValue(pushCenterParamToUrl);
+    centerStream.onError(function (message) {
+        toastr.error(message);
+    });
 
     var boundsStream = centerStream.map(centerToBounds);
 

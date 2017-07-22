@@ -65,7 +65,8 @@ module.exports = {
         new Webpack.ProvidePlugin({
             jQuery: "jquery",
             "window.jQuery": "jquery",
-            L: "leaflet"
+            L: "leaflet",
+            toastr: "toastr"
         }),
         new ExtractTextPlugin('css/main.css', {allChunks: true}),
         new BundleTracker({path: outputDir, filename: 'webpack-stats.json'}),

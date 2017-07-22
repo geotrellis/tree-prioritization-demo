@@ -2,6 +2,16 @@ var $ = require('jquery'),
     Bacon = require('baconjs'),
     BU = require('./baconUtils.js');
 
+// Failure status codes described here:
+// https://developers.google.com/maps/documentation/geocoding/intro
+var failureMessages = {
+    'ZERO_RESULTS': 'Could not find any matching locations.',
+    'OVER_QUERY_LIMIT': 'There are too many location searches right now.',
+    'REQUEST_DENIED': 'There was a problem finding the location.',
+    'INVALID_REQUEST': 'There was a problem finding the location.',
+    'UNKNOWN_ERROR': 'An unknown problem prevented finding the location.'
+};
+
 function searchBoxStream(inputSelector) {
     return  $(inputSelector)
         .asEventStream('keyup')
@@ -35,7 +45,11 @@ function createGeocodeStream(textbox) {
                 if (status === 'OK') {
                     geocodeBus.push(results[0].geometry.location.toJSON());
                 } else {
-                    geocodeBus.error('Failed to find location. ' + status);
+                    if (failureMessages[status]) {
+                        geocodeBus.error(failureMessages[status]);
+                    } else {
+                        geocodeBus.error('Failed to find location.');
+                    }
                 }
             });
         };
