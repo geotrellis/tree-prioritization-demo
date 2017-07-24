@@ -16,6 +16,7 @@ var dom = {
     layerSections: '#layers .panel-collapse',
     sliders: 'input.slider',
     layerOptions: '#map .options',
+    geocode: 'div.geocode',
     expandedLayerSections: '#layers .panel-collapse.in',
     toggleVariable: '#layers input[data-toggle-variable]',
     categorySliders: '#layers input.slider[data-category]',
@@ -36,7 +37,8 @@ var initialized = false,
     _loadingControl = null,
     _legendControl = null,
     _bounds = null,
-    _numBreaks = 10;
+    _numBreaks = 10,
+    _map = null;
 
 function init(options) {
     _urls = options.urls;
@@ -47,28 +49,35 @@ function init(options) {
 
     _legendControl = new controls.LegendControl();
 
-    options.map.addControl(_loadingControl);
-    options.map.addControl(_legendControl);
+    _map = options.map;
+
+    _map.addControl(_loadingControl);
+    _map.addControl(_legendControl);
 
     _initialParams = getParamsFromUi();
 
     dropdowns.init();
 
     // Prevent dragging sliders in the options dialog from dragging the map.
-    $(dom.layerOptions).on('mouseover', function() { options.map.dragging.disable(); });
-    $(dom.layerOptions).on('mouseout', function() { options.map.dragging.enable(); });
+    $(dom.layerOptions).on('mouseover', function() { _map.dragging.disable(); });
+    $(dom.layerOptions).on('mouseout', function() { _map.dragging.enable(); });
+
+    // Prevent dragging and double-clicking in the geocode text box from moving the map.
+    $(dom.geocode).on('mouseover', function() { _map.dragging.disable(); _map.doubleClickZoom.disable(); });
+    $(dom.geocode).on('mouseout', function() { _map.dragging.enable(); _map.doubleClickZoom.enable(); });
 
     // TODO: Re-enble when tile server accepts a list of zip code names
     // instead of "polyMask" GeoJSON
     var locationMaskChangedStream = Bacon.never(), //locationMasks.init(),
-
+        boundsChangedStream = new Bacon.Bus(),
         parameterChangedStream = Bacon.mergeAll(
             initDropdownStream(dom.weightDropdowns),
             initDropdownStream(dom.polarityDropdowns),
             initPriorityThresholdChangedStream(),
             $(dom.toggleVariable).asEventStream('change'),
             $(dom.rasterMaskCheckboxes).asEventStream('change'),
-            locationMaskChangedStream),
+            locationMaskChangedStream,
+            boundsChangedStream),
 
         presetChangedStream = initDropdownStream(dom.presetsDropdown);
 
@@ -77,13 +86,13 @@ function init(options) {
     parameterChangedStream
         .debounce(500)
         .map(getBreaksUrl)
-        .doAction(_.partial(onParamChanged, options.map))
+        .doAction(_.partial(onParamChanged, _map))
         .filter(R.not(_.isNull))
         .doAction(showLoadingSpinner)
         .flatMap(getClassBreaks)
         .doAction(hideLoadingSpinner)
         .mapError(showErrorMessage)
-        .onValue(updatePriorityLayer, options.map);
+        .onValue(updatePriorityLayer, _map);
 
     function showLoadingSpinner() {
         _loadingControl.setLoadingText('Processing').show();
@@ -100,6 +109,12 @@ function init(options) {
     function hideLoadingSpinner() {
         _loadingControl.hide();
     }
+
+    function changeBounds(bounds) {
+        _bounds = bounds;
+        removePriorityLayer(_map);
+        boundsChangedStream.push(bounds);
+    };
 
     // Update legend when dropdown values change.
     parameterChangedStream
@@ -125,6 +140,8 @@ function init(options) {
             return _.merge({}, params, preset);
         })
         .onValue(initUiFromParams);
+
+    options.boundsStream.onValue(changeBounds);
 
     initialized = true;
 }
@@ -187,11 +204,18 @@ function initDropdownStream(selector) {
 function onParamChanged(map, breaksUrl) {
     if (_priorityLayer && breaksUrl === null) {
         // No variables are on, so remove priority layer
-        map.removeLayer(_priorityLayer);
-        _priorityLayer = null;
+        removePriorityLayer(map);
     }
     updatePresetsDropdown();
 }
+
+function removePriorityLayer(map) {
+    if (_priorityLayer) {
+        map.removeLayer(_priorityLayer);
+    }
+    _priorityLayer = null;
+}
+
 
 function updatePresetsDropdown() {
     var params = getParamsFromUi(),

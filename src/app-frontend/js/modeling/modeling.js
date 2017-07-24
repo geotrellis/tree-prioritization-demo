@@ -2,13 +2,38 @@
 
 var $ = require('jquery'),
     L = require('leaflet'),
+    toastr = require('toastr'),
     prioritization = require('./prioritization.js'),
-    template = require('./template.js');
+    template = require('./template.js'),
+    geocoder = require('./geocoder.js');
+
+var dom = {
+    geocode: '#geocode'
+}
 
 require("../../assets/css/sass/main.scss");
 
 require('es6-promise').polyfill(); // https://gitlab.com/IvanSanchez/Leaflet.GridLayer.GoogleMutant
 require('leaflet.gridlayer.googlemutant');
+
+function centerToBounds(center) {
+    // 10,000 meters is a roughly city size boundary
+    return L.latLng(center).toBounds(5000);
+}
+
+function queryStringObject() {
+    var params = location.search.substring(1);
+    if (params.trim() !== '') {
+        try {
+            return JSON.parse('{"' + decodeURIComponent(params).replace(/"/g, '\\"').replace(/&/g, '","').replace(/=/g,'":"') + '"}');
+        } catch (e) {
+            console.log(e);
+            return {};
+        }
+    } else {
+        return {};
+    }
+}
 
 function init() {
     if (window.location.hostname == "localhost"){
@@ -16,13 +41,27 @@ function init() {
     } else {
         var urlPrefix = 'https://' + window.location.hostname + '/tile/gt/';
     }
+
     // Minneapolis / St Paul
     var bounds = L.latLngBounds([44.63635, -93.62626], [45.27205, -92.72795]);
+    var query = queryStringObject();
+    if (query.center) {
+        bounds = centerToBounds(L.latLng(JSON.parse('[' + query.center + ']')));
+    }
+
+    var centerStream = geocoder.createGeocodeStream(dom.geocode);
+    centerStream.map(centerToParam).onValue(pushCenterParamToUrl);
+    centerStream.onError(function (message) {
+        toastr.error(message);
+    });
+
+    var boundsStream = centerStream.map(centerToBounds);
 
     expandTemplates();
     prioritization.init({
-        map: createMap(bounds),
+        map: createMap(bounds, boundsStream),
         instanceBounds: bounds,
+        boundsStream: boundsStream,
         urls: {
             breaksUrl: urlPrefix + 'breaks',
             tileUrl: urlPrefix + 'tile/{z}/{x}/{y}.png'
@@ -40,11 +79,25 @@ function expandTemplates() {
     }));
 }
 
-function createMap(bounds) {
+function centerToParam(center) {
+    var latLng = L.latLng(center);
+    return '' + latLng.lat + ',' + latLng.lng;
+}
+
+function pushCenterParamToUrl(center) {
+    var baseUrl = [location.protocol, '//', location.host, location.pathname].join('');
+    if (window.history) {
+        window.history.pushState(null, document.title, [baseUrl, '?', $.param({center: center}), location.hash].join(''));
+    }
+}
+
+function createMap(bounds, boundsStream) {
     var map = L.map('map'),
         baseMapPaneName = 'base-map';
     map.createPane(baseMapPaneName);  // CSS class 'leaflet-base-map-pane'
     map.fitBounds(bounds);
+
+    boundsStream.onValue(map.fitBounds.bind(map));
 
     var basemapMapping = {
             'Streets':   makeBaseLayer('roadmap'),

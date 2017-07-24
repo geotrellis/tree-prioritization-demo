@@ -56,6 +56,23 @@ $blue-to-red: #2791c3 10%,
             right: 0;
             left: 350px;
 
+            .geocode {
+                position: absolute;
+                top: 10px;
+                left: 52px;
+                z-index: 1000;
+                width: 250px;
+
+                input {
+                    padding-left: 32px;
+                    border: 2px solid rgba(0, 0, 0, 0.2);
+                }
+
+                span.search {
+                    left: 0px;
+                }
+            }
+
             .options {
                 position: absolute;
                 top: 16px;
@@ -135,7 +152,7 @@ $blue-to-red: #2791c3 10%,
         }
     }
 
-    .leaflet-loading-control { 
+    .leaflet-loading-control {
         background: #fff;
         padding: 5px 10px;
         font-size: 12pt;
