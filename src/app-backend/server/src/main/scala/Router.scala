@@ -85,7 +85,7 @@ trait Router extends Directives
   }
 
   def computeBreaks(bbox: String, layersParam: String, weightsParam: String, numBreaks: Int,
-                    polyMaskParam: String, layerMaskParam: String): String = {
+                    zipCodesParam: String, layerMaskParam: String): String = {
     val extent = ProjectedExtent(Extent.fromString(bbox), LatLng).reproject(WebMercator)
     // TODO: Dynamic breaks based on configurable breaks resolution.
 
@@ -103,7 +103,7 @@ trait Router extends Directives
     }
 
     val polys = reprojectPolygons(
-      parsePolyMaskParam(polyMaskParam),
+      parseZipCodesParam(zipCodesParam),
       4326
     )
 
@@ -149,6 +149,38 @@ trait Router extends Directives
         }
       }
     } ~
+    path("gt" / "masks" / "zip-codes" / Segment ) { (code) =>
+      options {
+        cors() {
+          complete("OK")
+        }
+      } ~
+      get {
+        parameters("bbox") {
+          (bbox) => {
+            cors () {
+              if (zipCodes.contains(code)) {
+                // Adding the zip to the GeoJSON geometry allows for simpler client code.
+                // This assumes that the Map value starts with "{".
+                val jsonString = "{\"id\":\"" + code + "\"," + zipCodes(code).tail
+                if (inBounds(jsonString, bbox)) {
+                  complete {
+                    respondWithJson {
+                      jsonString
+                    }
+                  }
+                } else {
+                  complete(HttpResponse(BadRequest, entity = "Zip code not within the map bounds."))
+                }
+              } else {
+                complete(HttpResponse(NotFound, entity = "Unknown zip code."))
+              }
+            }
+
+          }
+        }
+      }
+    } ~
     path("gt" / "breaks") {
       options {
         cors() {
@@ -161,15 +193,15 @@ trait Router extends Directives
                    'weights,
                    'numBreaks.as[Int],
                    'threshold.as[Int] ? NODATA,
-                   'polyMask ? "",
+                   'zipCodes ? "",
                    'layerMask ? "") {
           (bbox, layersParam, weightsParam, numBreaks, threshold,
-              polyMaskParam, layerMaskParam) => {
+              zipCodesParam, layerMaskParam) => {
             cors() {
                 complete {
                   Future {
                     respondWithJson {
-                      computeBreaks(bbox, layersParam, weightsParam, numBreaks, polyMaskParam, layerMaskParam)
+                      computeBreaks(bbox, layersParam, weightsParam, numBreaks, zipCodesParam, layerMaskParam)
                     }
                   }
                 }
@@ -192,11 +224,11 @@ trait Router extends Directives
                    'breaks,
                    'colorRamp ? "blue-to-red",
                    'threshold.as[Int] ? NODATA,
-                   'polyMask ? "",
+                   'zipCodes ? "",
                    'layerMask ? "") {
           (bbox, layersString, weightsString,
            palette, breaksString, colorRamp, threshold,
-           polyMaskParam, layerMaskParam) => {
+           zipCodesParam, layerMaskParam) => {
                 complete {
                   Future {
                     val extent = ProjectedExtent(Extent.fromString(bbox), LatLng).reproject(WebMercator)
@@ -216,7 +248,7 @@ trait Router extends Directives
                     }
 
                     val polys = reprojectPolygons(
-                      parsePolyMaskParam(polyMaskParam),
+                      parseZipCodesParam(zipCodesParam),
                       4326
                     )
 
