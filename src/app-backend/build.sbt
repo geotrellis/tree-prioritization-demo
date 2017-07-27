@@ -12,6 +12,10 @@ lazy val commonSettings = Seq(
     "-language:postfixOps",
     "-language:existentials",
     "-feature"),
+  javaOptions ++= Seq(
+    "-Xmx2G",
+    "-Xms512m",
+    "-Xss2m"),
   outputStrategy := Some(StdoutOutput),
   publishMavenStyle := true,
   publishArtifact in Test := false,

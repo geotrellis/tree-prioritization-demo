@@ -64,6 +64,7 @@ function init() {
         boundsStream: boundsStream,
         urls: {
             breaksUrl: urlPrefix + 'breaks',
+            zipCodeUrl: urlPrefix + 'masks/zip-codes',
             tileUrl: urlPrefix + 'tile/{z}/{x}/{y}.png'
         }
     });

@@ -60,10 +60,10 @@
                 <div id="masks" class="panel-collapse collapse">
                     <div class="panel-body">
                         <div class="">
-                            <div class="mask-header" data-toggle="collapse" data-target="#boundary-masks">Location</div>
+                            <div class="mask-header" data-toggle="collapse" data-target="#boundary-masks">Zip Code</div>
                             <div class="collapse in" id="boundary-masks">
                                 <div class="mask-chooser">
-                                    <label class="boundary-search-label">Add specific location</label>
+                                    <label class="boundary-search-label">Add a 5-digit zip code</label>
                                     <div class="autocomplete-group">
                                         <input type="text"
                                                data-class="search"
@@ -71,6 +71,7 @@
                                                class="form-control"
                                                data-thumbprint=""/>
                                         <input name="boundary-mask" type="hidden" id="boundary-mask" />
+                                        <div id="boundary-error"></div>
                                     </div>
                                 </div>
                                 <div id="chosen-masks"></div>
@@ -199,11 +200,11 @@
 
 <script type="text/template" id="boundary-mask-tmpl">
     <div class="mask-row js-vector-mask">
-        <a class="remove-mask" data-boundary-id="<%- boundary.id %>">
+        <a class="remove-mask" data-boundary-id="<%- id %>">
             &times;
         </a>
-        <div class="mask-name"><%- boundary.name %></div>
-        <div class="mask-category"><%- boundary.category %></div>
+        <div class="mask-name"><%- id %></div>
+        <div class="mask-category">Zip Code</div>
     </div>
 </script>
 

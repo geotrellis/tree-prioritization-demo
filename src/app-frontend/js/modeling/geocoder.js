@@ -12,13 +12,6 @@ var failureMessages = {
     'UNKNOWN_ERROR': 'An unknown problem prevented finding the location.'
 };
 
-function searchBoxStream(inputSelector) {
-    return  $(inputSelector)
-        .asEventStream('keyup')
-        .map(function () { return $(inputSelector).val();})
-        .sampledBy(BU.enterOrClickEventStream({inputs: inputSelector}));
-}
-
 function createAutocomplete(textbox) {
     var placeTextBus = new Bacon.Bus();
     var placePointBus = new Bacon.Bus();
@@ -36,7 +29,7 @@ function createAutocomplete(textbox) {
 
 function createGeocodeStream(textbox) {
     var placePointStream = createAutocomplete(textbox);
-    var addressStream = searchBoxStream(textbox);
+    var addressStream = BU.searchBoxStream(textbox);
     var geocoder = new google.maps.Geocoder(),
         geocodeBus = new Bacon.Bus(),
         prepareAddress = function (address) { return {'address': address}; },

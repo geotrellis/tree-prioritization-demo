@@ -136,6 +136,13 @@ exports.enterKeyPressStream = function(options) {
     return enterKeyPressStream;
 };
 
+exports.searchBoxStream = function(inputSelector) {
+    return  $(inputSelector)
+        .asEventStream('keyup')
+        .map(function () { return $(inputSelector).val();})
+        .sampledBy(exports.enterOrClickEventStream({inputs: inputSelector}));
+};
+
 exports.leafletEventStream = function(leafletThing, event) {
     return Bacon.fromBinder(function (handler) {
         leafletThing.on(event, handler);
