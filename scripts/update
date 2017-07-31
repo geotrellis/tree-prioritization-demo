@@ -32,8 +32,8 @@ then
             | gunzip > src/app-backend/server/src/main/resources/masks/zip-codes.tsv
         fi
 
-        echo "Building JAR"
+        echo "Updating Scala dependencies"
         docker-compose \
-            run --rm --entrypoint ./sbt api-server assembly
+            run --rm --entrypoint ./sbt api-server update
     fi
 fi
