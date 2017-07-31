@@ -23,6 +23,15 @@ then
         docker-compose \
             run --rm app-frontend install --pure-lockfile
 
+        if [ ! -d "src/app-backend/server/src/main/resources/masks" ]; then
+            echo "Copying ZIP code TSV"
+            mkdir -p src/app-backend/server/src/main/resources/masks
+            aws s3 cp \
+                s3://geotrellis-site-global-data-us-east-1/tree-prioritization-demo/zip-codes.tsv.gz \
+                - \
+            | gunzip > src/app-backend/server/src/main/resources/masks/zip-codes.tsv
+        fi
+
         echo "Building JAR"
         docker-compose \
             run --rm --entrypoint ./sbt api-server assembly

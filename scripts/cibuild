@@ -6,8 +6,6 @@ if [[ -n "${GT_TREE_PRIORITIZATION_DEBUG}" ]]; then
     set -x
 fi
 
-DIR="$(dirname "$0")"
-
 function usage() {
     echo -n \
 "Usage: $(basename "$0")
@@ -19,13 +17,20 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
     if [ "${1:-}" = "--help" ]; then
         usage
     else
-
         echo "Running tests..."
-        "${DIR}/test"
+        ./scripts/test
         echo "Tests complete!"
 
-        echo "Building static site..."
+        if [ ! -d "src/app-backend/server/src/main/resources/masks" ]; then
+            echo "Copying ZIP code TSV"
+            mkdir -p src/app-backend/server/src/main/resources/masks
+            aws s3 cp \
+                s3://geotrellis-site-global-data-us-east-1/tree-prioritization-demo/zip-codes.tsv.gz \
+                - \
+                | gunzip > src/app-backend/server/src/main/resources/masks/zip-codes.tsv
+        fi
 
+        echo "Building static site..."
         docker-compose run --rm app-frontend install --pure-lockfile
         docker-compose run --rm app-frontend bundle
         echo "Static asset bundle complete!"
