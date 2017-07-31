@@ -7,6 +7,46 @@
 </head>
 <body id="modeling">
 
+    <div id="welcome-dialog" class="modal fade">
+        <div class="container">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-body">
+                        <h2>GeoTrellis <strong>Tree Prioritization</strong></h2>
+                        <p>Trees provide countless economic, social, and environmental benefits. Discover optimal tree planting locations based on environmental and demographic data.</p>
+                        <p>Using the sidebar on the left of the page, set the priorities that connect to your planting goals, choose the zip codes you would like to see, and view maps displaying possible planting areas.</p>
+                        <div class="featured">
+                            <div class="row">
+                                <div class="col-md-3"></div>
+                                <div class="col-md-6"><hr/></div>
+                                <div class="col-md-3"></div>
+                            </div>
+                            <h5>Explore planting locations in these featured cities</h5>
+                            <div id="locations-container" class="row"></div>
+                            <div class="row">
+                                <div class="col-md-3"></div>
+                                <div class="col-md-6"><hr/></div>
+                                <div class="col-md-3"></div>
+                            </div>
+                            <h5>Or enter a location in the continental US</h5>
+                            <div class="form-group">
+                                <input class="form-control" id="modal-geocode" type="text" placeholder="City, Zip code, Address, etc." name="modal-geocode" value="" autocomplete="off" style="outline: none;">
+                            </div>
+                            <div class="row">
+                                <div class="col-md-3"></div>
+                                <div class="col-md-6"><hr/></div>
+                                <div class="col-md-3"></div>
+                            </div>
+                            <h5>Interested in trees and tech?</h5>
+                            <div><a href="http://www.opentreemap.org">Learn more at OpenTreeMap.org</a></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
 <div class="content map">
     <div class="sidebar" id="sidebar-prioritization">
         <div class="panel-group" id="accordion">
@@ -103,6 +143,23 @@
         </div>
     </div>
 </div>
+
+<script type="text/template" id="locations-tmpl">
+    <% _.each(locations, function(location) { %>
+        <div class="col-md-4">
+            <div>
+                <h4>
+                    <a href="/?center=<%- location.center %>&preset=<%- JSON.stringify(location.preset) %>" data-center="<%- location.center %>" data-preset="<%- JSON.stringify(location.preset) %>">
+                        <%- location.name %>
+                    </a>
+                </h4>
+            </div>
+            <p>
+               <%= location.description %>
+            </p>
+        </div>
+    <% }) %>
+</script>
 
 <script type="text/template" id="variables-tmpl">
     <% _.each(variables, function(variable) { %>

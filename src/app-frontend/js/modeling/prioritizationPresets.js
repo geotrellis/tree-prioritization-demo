@@ -20,15 +20,19 @@ var presets = {
 function get(presetId) {
     var preset = presets[presetId];
     if (preset) {
-        return {
-            activeVariables: _.keys(preset),
-            weights: {
-                variables: preset
-            }
-        };
+        return format(preset);
     } else {
         return {};
     }
+}
+
+function format(preset) {
+    return {
+        activeVariables: _.keys(preset),
+        weights: {
+            variables: preset
+        }
+    };
 }
 
 function match(params) {
@@ -39,5 +43,6 @@ function match(params) {
 
 module.exports = {
     get: get,
-    match: match
+    match: match,
+    format: format
 };

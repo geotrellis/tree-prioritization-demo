@@ -71,6 +71,7 @@ function init(options) {
 
     var locationMaskChangedStream = locationMasks.init(options),
         boundsChangedStream = new Bacon.Bus(),
+        setPresetBus = new Bacon.Bus(),
         parameterChangedStream = Bacon.mergeAll(
             initDropdownStream(dom.weightDropdowns),
             initDropdownStream(dom.polarityDropdowns),
@@ -78,7 +79,8 @@ function init(options) {
             $(dom.toggleVariable).asEventStream('change'),
             $(dom.rasterMaskCheckboxes).asEventStream('change'),
             locationMaskChangedStream,
-            boundsChangedStream),
+            boundsChangedStream,
+            setPresetBus),
 
         presetChangedStream = initDropdownStream(dom.presetsDropdown);
 
@@ -118,6 +120,13 @@ function init(options) {
         boundsChangedStream.push(bounds);
     };
 
+    function setPreset(preset) {
+        var params = _.merge({}, getParamsFromUi(), presets.format(preset));
+        initUiFromParams(params);
+        setPresetBus.push();
+    }
+
+
     // Update legend when dropdown values change.
     parameterChangedStream
         .map(getActiveLayers)
@@ -143,9 +152,18 @@ function init(options) {
         })
         .onValue(initUiFromParams);
 
+    if (options.preset) {
+        setPreset(options.preset);
+    }
+
     options.boundsStream.onValue(changeBounds);
 
     initialized = true;
+
+    return {
+        presetChangedStream: parameterChangedStream.map(getParamsFromUi).map(toPreset),
+        setPreset: setPreset
+    };
 }
 
 var getClassBreaks = (function() {
@@ -415,6 +433,14 @@ function getParamsFromUi() {
             return [layer.source, layer.weight];
         }));
     }
+}
+
+function toPreset(params) {
+    var preset = {};
+    _.each(params.activeVariables, function(variable) {
+        preset[variable] = params.weights.variables[variable];
+    });
+    return preset;
 }
 
 function initUiFromParams(params) {

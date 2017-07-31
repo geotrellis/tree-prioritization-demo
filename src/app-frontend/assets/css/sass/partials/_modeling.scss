@@ -187,6 +187,43 @@ $blue-to-red: #2791c3 10%,
             white-space: nowrap;
         }
     }
+
+    #welcome-dialog {
+        .modal-dialog {
+            width: 80%;
+        }
+
+        .modal-body {
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            padding: 40px;
+        }
+
+        h2 {
+            text-align: center;
+            padding-bottom: 20px;
+        }
+
+        h4 {
+            font-weight: bolder;
+        }
+
+        h5 {
+            padding: 10px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 40%;
+            margin: 0 auto;
+        }
+
+        .featured {
+            text-align: center;
+        }
+    }
 }
 
 #sidebar-prioritization {
@@ -491,4 +528,9 @@ $blue-to-red: #2791c3 10%,
             }
         }
     }
+}
+
+// puts the google places autocomplete dropdown results above the bootstrap modal 1050 zindex.
+.pac-container {
+    z-index: 1051 !important;
 }
