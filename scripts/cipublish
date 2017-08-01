@@ -38,9 +38,9 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
 
             docker tag "gt-tree-prioritization-nginx:${VERSION}" \
                 "${AWS_ECR_ENDPOINT}/gt-tree-prioritization-nginx:${VERSION}"
-
             docker tag "gt-tree-prioritization:${VERSION}" \
                 "${AWS_ECR_ENDPOINT}/gt-tree-prioritization:${VERSION}"
+
             docker push "${AWS_ECR_ENDPOINT}/gt-tree-prioritization:${VERSION}"
             docker push "${AWS_ECR_ENDPOINT}/gt-tree-prioritization-nginx:${VERSION}"
         else
