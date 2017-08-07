@@ -17,11 +17,11 @@ script:
 - mkdir -p ~/.local/bin
 - export PATH="~/.local/bin:$PATH"
 - pip install --user docker-compose==${DOCKER_COMPOSE_VERSION}
-- pip install --user awscli==${AWSCLI_VERSION}
 - scripts/cibuild
 before_deploy:
 - wget -O terraform-${TERRAFORM_VERSION}.zip https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
 - unzip -d ~/.local/bin terraform-${TERRAFORM_VERSION}.zip
+- pip install --user awscli==${AWSCLI_VERSION}
 - rm terraform-${TERRAFORM_VERSION}.zip
 deploy:
   provider: script
