@@ -2,14 +2,17 @@
 
 var $ = require('jquery'),
     L = require('leaflet'),
+    Bacon = require('baconjs'),
     toastr = require('toastr'),
     prioritization = require('./prioritization.js'),
     template = require('./template.js'),
     geocoder = require('./geocoder.js');
 
 var dom = {
-    geocode: '#geocode'
-}
+    geocode: '#geocode',
+    modalGeocode: '#modal-geocode',
+    welcomeDialog: '#welcome-dialog'
+};
 
 require("../../assets/css/sass/main.scss");
 
@@ -42,6 +45,18 @@ function init() {
         var urlPrefix = 'https://' + window.location.hostname + '/tile/gt/';
     }
 
+    // Only show the welcome dialog if there is no center= query string argument
+    if (window.location.search.toLocaleLowerCase().indexOf('center=') < 0) {
+        $(dom.welcomeDialog).modal();
+    };
+
+    var preset = undefined;
+    try {
+        preset = JSON.parse(queryStringObject().preset);
+    } catch(e) {
+        // Ignore a missing or malformed preset value
+    }
+
     // Minneapolis / St Paul
     var bounds = L.latLngBounds([44.63635, -93.62626], [45.27205, -92.72795]);
     var query = queryStringObject();
@@ -49,24 +64,42 @@ function init() {
         bounds = centerToBounds(L.latLng(JSON.parse('[' + query.center + ']')));
     }
 
-    var centerStream = geocoder.createGeocodeStream(dom.geocode);
+    var centerStream = geocoder.createGeocodeStream(dom.geocode).merge(geocoder.createGeocodeStream(dom.modalGeocode));
     centerStream.map(centerToParam).onValue(pushCenterParamToUrl);
     centerStream.onError(function (message) {
         toastr.error(message);
     });
 
-    var boundsStream = centerStream.map(centerToBounds);
+    var boundsBus = new Bacon.Bus();
+    var boundsStream = centerStream.map(centerToBounds).merge(boundsBus);
 
+    centerStream.onValue(function () { $(dom.welcomeDialog).modal('hide'); });
     expandTemplates();
-    prioritization.init({
+    var prioritizationInstance = prioritization.init($.extend(query, {
         map: createMap(bounds, boundsStream),
         instanceBounds: bounds,
         boundsStream: boundsStream,
+        preset: preset,
         urls: {
             breaksUrl: urlPrefix + 'breaks',
             zipCodeUrl: urlPrefix + 'masks/zip-codes',
             tileUrl: urlPrefix + 'tile/{z}/{x}/{y}.png'
         }
+    }));
+
+    prioritizationInstance.presetChangedStream.onValue(pushPresetToUrl);
+
+    // Handle selecting a preset on the welcome dialog
+    $('body').on('click', 'a[data-center]', function(e){
+        e.preventDefault();
+        var preset = $(e.target).data('preset'),
+            center = $(e.target).data('center'),
+            bounds = centerToBounds(center.split(','));
+        boundsBus.push(bounds);
+        pushCenterParamToUrl(center);
+        pushPresetToUrl(preset);
+        prioritizationInstance.setPreset(preset);
+        $(dom.welcomeDialog).modal('hide');
     });
 }
 
@@ -78,6 +111,9 @@ function expandTemplates() {
     $('#masks-container').html(template.render('#raster-masks-tmpl', {
         masks: get_masks()
     }));
+    $('#locations-container').html(template.render('#locations-tmpl', {
+        locations: get_locations()
+    }));
 }
 
 function centerToParam(center) {
@@ -85,10 +121,22 @@ function centerToParam(center) {
     return '' + latLng.lat + ',' + latLng.lng;
 }
 
+function pushPresetToUrl(preset) {
+    var params = queryStringObject();
+    params.preset = JSON.stringify(preset);
+    pushParamsToUrl(params);
+}
+
 function pushCenterParamToUrl(center) {
+    var params = queryStringObject();
+    params.center = center;
+    pushParamsToUrl(params);
+}
+
+function pushParamsToUrl(params) {
     var baseUrl = [location.protocol, '//', location.host, location.pathname].join('');
     if (window.history) {
-        window.history.pushState(null, document.title, [baseUrl, '?', $.param({center: center}), location.hash].join(''));
+        window.history.replaceState(null, document.title, [baseUrl, '?', $.param(params), location.hash].join(''));
     }
 }
 
@@ -212,5 +260,30 @@ function get_masks() {
         }
     ];
 }
+
+function get_locations() {
+    return [
+        {
+            name: 'Chicago',
+            center: '41.8781136,-87.62979819999998',
+            preset: {"us-census-housing-vacancy-30m-epsg3857": -2},
+            weights: '-2',
+            description: 'Discover planting locations with <strong>low housing vacancy</strong> rates'
+        },
+        {
+            name: 'Philadelphia',
+            center: '39.9525839,-75.16522150000003',
+            preset: {"us-census-population-density-30m-epsg3857": 2},
+            description: 'Find planting locations where the <strong>most people live</strong>'
+        },
+        {
+            name: 'Los Angeles',
+            center: '34.0522342,-118.2436849',
+            preset: {"us-census-median-household-income-tms-epsg3857": -2, "nlcd-2011-canopy-tms-epsg3857": -2},
+            description: 'Explore planting locations related to <strong>environmental justice</strong>'
+        }
+    ];
+}
+
 
 init();
