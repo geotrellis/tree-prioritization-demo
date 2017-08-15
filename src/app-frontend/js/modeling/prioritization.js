@@ -66,9 +66,6 @@ function init(options) {
     $(dom.geocode).on('mouseover', function() { _map.dragging.disable(); _map.doubleClickZoom.disable(); });
     $(dom.geocode).on('mouseout', function() { _map.dragging.enable(); _map.doubleClickZoom.enable(); });
 
-    // TODO: Re-enble when tile server accepts a list of zip code names
-    // instead of "polyMask" GeoJSON
-
     var locationMaskChangedStream = locationMasks.init(options),
         boundsChangedStream = new Bacon.Bus(),
         setPresetBus = new Bacon.Bus(),
