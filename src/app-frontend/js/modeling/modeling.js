@@ -11,6 +11,8 @@ var $ = require('jquery'),
 var dom = {
     geocode: '#geocode',
     modalGeocode: '#modal-geocode',
+    featuredCities: '.featured-cities',
+    startPlanning: '#start-planning',
     welcomeDialog: '#welcome-dialog'
 };
 
@@ -45,10 +47,18 @@ function init() {
         var urlPrefix = 'https://' + window.location.hostname + '/tile/gt/';
     }
 
-    // Only show the welcome dialog if there is no center= query string argument
+    // Hide the featured cities in the modal and show a "Start Planning!" button if
+    // there is already a center parameter in the URL
     if (window.location.search.toLocaleLowerCase().indexOf('center=') < 0) {
+        $(dom.startPlanning).hide();
+    } else {
+        $(dom.featuredCities).hide();
+    }
+    // Only show the welcome dialog if there is no preset= query string argument
+    if (window.location.search.toLocaleLowerCase().indexOf('preset=') < 0) {
         $(dom.welcomeDialog).modal();
-    };
+    }
+
 
     var preset = undefined;
     try {
