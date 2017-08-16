@@ -6,7 +6,9 @@ var $ = require('jquery'),
     toastr = require('toastr'),
     prioritization = require('./prioritization.js'),
     template = require('./template.js'),
-    geocoder = require('./geocoder.js');
+    geocoder = require('./geocoder.js'),
+
+    centerToBounds = prioritization.centerToBounds;
 
 var dom = {
     geocode: '#geocode',
@@ -18,11 +20,6 @@ require("../../assets/css/sass/main.scss");
 
 require('es6-promise').polyfill(); // https://gitlab.com/IvanSanchez/Leaflet.GridLayer.GoogleMutant
 require('leaflet.gridlayer.googlemutant');
-
-function centerToBounds(center) {
-    // 10,000 meters is a roughly city size boundary
-    return L.latLng(center).toBounds(5000);
-}
 
 function queryStringObject() {
     var params = location.search.substring(1);
@@ -88,6 +85,7 @@ function init() {
     }));
 
     prioritizationInstance.presetChangedStream.onValue(pushPresetToUrl);
+    prioritizationInstance.centerChangedStream.map(centerToParam).onValue(pushCenterParamToUrl);
 
     // Handle selecting a preset on the welcome dialog
     $('body').on('click', 'a[data-center]', function(e){
