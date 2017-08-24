@@ -27,7 +27,8 @@ var dom = {
     transparencySlider: '.slider.js-transparency',
     priorityThresholdSlider: '.slider.js-priority-threshold',
     rasterMaskCheckboxes: '.js-raster-mask input:checkbox',
-    vectorMaskCheckboxes: '.js-vector-mask input:checkbox'
+    vectorMaskCheckboxes: '.js-vector-mask input:checkbox',
+    recalculate: '#recalculate'
 };
 
 var initialized = false,
@@ -66,11 +67,9 @@ function init(options) {
     $(dom.geocode).on('mouseover', function() { _map.dragging.disable(); _map.doubleClickZoom.disable(); });
     $(dom.geocode).on('mouseout', function() { _map.dragging.enable(); _map.doubleClickZoom.enable(); });
 
-    // TODO: Re-enble when tile server accepts a list of zip code names
-    // instead of "polyMask" GeoJSON
-
     var locationMaskChangedStream = locationMasks.init(options),
         boundsChangedStream = new Bacon.Bus(),
+        centerChangedBus = new Bacon.Bus(),
         setPresetBus = new Bacon.Bus(),
         parameterChangedStream = Bacon.mergeAll(
             initDropdownStream(dom.weightDropdowns),
@@ -96,6 +95,22 @@ function init(options) {
         .doAction(hideLoadingSpinner)
         .mapError(showErrorMessage)
         .onValue(updatePriorityLayer, _map);
+
+    _map.on('moveend', function (e) {
+        $(dom.recalculate).show();
+    });
+
+    $(dom.recalculate).on('click', function(e){
+        $(dom.recalculate).hide();
+        setBoundsBasedOnMapCenter();
+    });
+
+    function setBoundsBasedOnMapCenter() {
+        var center = _map.getCenter(),
+            bounds = centerToBounds(center);
+        changeBounds(bounds);
+        centerChangedBus.push(center);
+    }
 
     function showLoadingSpinner() {
         _loadingControl.setLoadingText('Processing').show();
@@ -162,6 +177,7 @@ function init(options) {
 
     return {
         presetChangedStream: parameterChangedStream.map(getParamsFromUi).map(toPreset),
+        centerChangedStream: centerChangedBus.toEventStream(),
         setPreset: setPreset
     };
 }
@@ -189,6 +205,11 @@ var getClassBreaks = (function() {
         });
     };
 }());
+
+function centerToBounds(center) {
+    // 10,000 meters is a roughly city size boundary
+    return L.latLng(center).toBounds(5000);
+}
 
 function initTransparencySlider() {
     initSliderStream(dom.transparencySlider)
@@ -617,5 +638,6 @@ function filterByAttribute($items, attName, attValue) {
 }
 
 module.exports = {
-    init: init
+    init: init,
+    centerToBounds: centerToBounds
 };
