@@ -31,6 +31,10 @@ variable "cloudwatch_log_retention_days" {
   default = "30"
 }
 
+variable "ecs_autoscaling_role_name" {
+  default = "AWSServiceRoleForApplicationAutoScaling_ECSService"
+}
+
 variable "tree_prioritization_ecs_desired_count" {
   default = "1"
 }
