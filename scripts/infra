@@ -33,6 +33,9 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
 
         case "${1}" in
             plan)
+                aws s3 cp "s3://${GT_TREE_PRIORITIZATION_SETTINGS_BUCKET}/terraform/tree-prioritization/terraform.tfvars" \
+                    "${GT_TREE_PRIORITIZATION_SETTINGS_BUCKET}.tfvars"
+
                 rm -rf .terraform/ terraform.tfstate*
                 terraform init \
                     -backend-config="bucket=${GT_TREE_PRIORITIZATION_SETTINGS_BUCKET}" \
@@ -40,6 +43,7 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
 
                 terraform plan \
                           -var="image_version=\"${TRAVIS_COMMIT:0:7}\"" \
+                          -var-file="${GT_TREE_PRIORITIZATION_SETTINGS_BUCKET}.tfvars" \
                           -var="remote_state_bucket=\"${GT_TREE_PRIORITIZATION_SETTINGS_BUCKET}\"" \
                           -out="${GT_TREE_PRIORITIZATION_SETTINGS_BUCKET}.tfplan"
                 ;;

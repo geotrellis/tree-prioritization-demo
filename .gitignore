@@ -54,3 +54,4 @@ tile.png
 deployment/terraform/.terraform
 deployment/terraform/*.tfstate*
 deployment/terraform/*.tfplan
+*.tfvars
