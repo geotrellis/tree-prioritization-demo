@@ -27,6 +27,9 @@ variable "cdn_price_class" {
 
 variable "ssl_certificate_arn" {}
 
+variable "cloudwatch_log_retention_days" {
+  default = "30"
+}
 
 variable "tree_prioritization_ecs_desired_count" {
   default = "1"

@@ -4,7 +4,8 @@
 
 # Logs destination for ECS service
 resource "aws_cloudwatch_log_group" "tree_prioritization" {
-  name = "log${var.environment}TreePrioritization"
+  name              = "log${var.environment}TreePrioritization"
+  retention_in_days = "${var.cloudwatch_log_retention_days}"
 
   tags {
     Environment = "${var.environment}"
